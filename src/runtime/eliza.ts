@@ -50,7 +50,6 @@ import * as pluginAgentSkills from "@elizaos/plugin-agent-skills";
 import * as pluginAnthropic from "@elizaos/plugin-anthropic";
 import * as pluginBrowser from "@elizaos/plugin-browser";
 import * as pluginCli from "@elizaos/plugin-cli";
-import * as pluginCodingAgent from "@elizaos/plugin-coding-agent";
 import * as pluginComputeruse from "@elizaos/plugin-computeruse";
 import * as pluginCron from "@elizaos/plugin-cron";
 import * as pluginDiscord from "@elizaos/plugin-discord";
@@ -136,7 +135,6 @@ const STATIC_ELIZA_PLUGINS: Record<string, unknown> = {
   "@elizaos/plugin-rolodex": pluginRolodex,
   "@elizaos/plugin-trajectory-logger": pluginTrajectoryLogger,
   "@elizaos/plugin-agent-orchestrator": pluginAgentOrchestrator,
-  "@elizaos/plugin-coding-agent": pluginCodingAgent,
   "@elizaos/plugin-cron": pluginCron,
   "@elizaos/plugin-shell": pluginShell,
   "@elizaos/plugin-plugin-manager": pluginPluginManager,
@@ -163,7 +161,7 @@ const STATIC_ELIZA_PLUGINS: Record<string, unknown> = {
   "@elizaos/plugin-experience": pluginExperience,
 };
 
-// NODE_PATH so dynamic plugin imports (e.g. @elizaos/plugin-coding-agent) resolve.
+// NODE_PATH so dynamic plugin imports (e.g. @elizaos/plugin-agent-orchestrator) resolve.
 // WHY: When eliza is loaded from dist/ or by a test runner, Node's resolution does not
 // search repo root node_modules; import("@elizaos/plugin-*") then fails. We prepend
 // repo root node_modules only if not already in NODE_PATH (run-node.mjs may have set it)

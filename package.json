@@ -116,7 +116,6 @@
     "@elizaos/plugin-browser": "next",
     "@elizaos/plugin-claude-code-workbench": "next",
     "@elizaos/plugin-cli": "next",
-    "@elizaos/plugin-coding-agent": "next",
     "@elizaos/plugin-computeruse": "next",
     "@elizaos/plugin-cron": "next",
     "@elizaos/plugin-discord": "next",

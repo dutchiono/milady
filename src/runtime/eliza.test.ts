@@ -137,7 +137,6 @@ describe("collectPluginNames", () => {
       "@elizaos/plugin-rolodex",
       "@elizaos/plugin-trajectory-logger",
       "@elizaos/plugin-agent-orchestrator",
-      "@elizaos/plugin-coding-agent",
       "@elizaos/plugin-cron",
       "@elizaos/plugin-shell",
       "@elizaos/plugin-plugin-manager",

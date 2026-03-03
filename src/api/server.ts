@@ -11480,40 +11480,22 @@ async function handleRequest(
     // Try to dynamically load the route handler from the local plugin first
     let handled = false;
 
-    // Try @elizaos/plugin-coding-agent first (local workspace plugin)
     try {
-      const codingAgentPlugin = await import("@elizaos/plugin-coding-agent");
-      if (codingAgentPlugin.createCodingAgentRouteHandler) {
-        const coordinator = codingAgentPlugin.getCoordinator?.(state.runtime);
-        const handler = codingAgentPlugin.createCodingAgentRouteHandler(
+      const orchestratorPlugin = await import(
+        "@elizaos/plugin-agent-orchestrator"
+      );
+      if (orchestratorPlugin.createCodingAgentRouteHandler) {
+        const coordinator = orchestratorPlugin.getCoordinator?.(
+          state.runtime,
+        );
+        const handler = orchestratorPlugin.createCodingAgentRouteHandler(
           state.runtime,
           coordinator,
         );
         handled = await handler(req, res, pathname);
       }
     } catch {
-      // Local plugin not available, try npm plugin
-    }
-
-    // Fallback to @elizaos/plugin-agent-orchestrator (npm)
-    if (!handled) {
-      try {
-        const orchestratorPlugin = await import(
-          "@elizaos/plugin-agent-orchestrator"
-        );
-        if (orchestratorPlugin.createCodingAgentRouteHandler) {
-          const coordinator = orchestratorPlugin.getCoordinator?.(
-            state.runtime,
-          );
-          const handler = orchestratorPlugin.createCodingAgentRouteHandler(
-            state.runtime,
-            coordinator,
-          );
-          handled = await handler(req, res, pathname);
-        }
-      } catch {
-        // Plugin doesn't export these functions - skip routing
-      }
+      // Plugin doesn't export these functions - skip routing
     }
 
     // Final fallback: Handle coding-agents routes using AgentOrchestratorService
