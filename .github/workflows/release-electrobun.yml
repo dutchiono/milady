@@ -403,20 +403,39 @@ jobs:
         if: matrix.platform.os == 'windows'
         run: pwsh -File apps/app/electrobun/scripts/smoke-test-windows.ps1
 
-      - name: Stage Windows setup executables
+      - name: Stage Windows installer
         if: matrix.platform.os == 'windows'
         shell: pwsh
         run: |
           $artifactsDir = Join-Path $PWD "apps/app/electrobun/artifacts"
-          $setupExecutables = Get-ChildItem -Path "apps/app/electrobun/build" -Recurse -File -Filter "*Setup*.exe" -ErrorAction SilentlyContinue
-          if (-not $setupExecutables) {
+          New-Item -ItemType Directory -Force -Path $artifactsDir | Out-Null
+
+          # Electrobun produces a two-part installer:
+          #   Setup.exe          — tiny stub extractor (< 1 MB)
+          #   .installer/*.tar.zst — the actual app archive (700+ MB)
+          # The exe looks for .installer/ next to itself at runtime.
+          # We must stage BOTH into the artifacts directory so the
+          # downloaded artifact is a working installer out of the box.
+          $setupExe = Get-ChildItem -Path "apps/app/electrobun/build" -Recurse -File -Filter "*Setup*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $setupExe) {
             Write-Error "No Windows setup executable found under apps/app/electrobun/build"
             exit 1
           }
-          New-Item -ItemType Directory -Force -Path $artifactsDir | Out-Null
-          foreach ($setupExecutable in $setupExecutables) {
-            Copy-Item $setupExecutable.FullName -Destination $artifactsDir -Force
-            Write-Host "Staged Windows setup executable: $($setupExecutable.Name)"
+
+          # Copy the stub exe
+          Copy-Item $setupExe.FullName -Destination $artifactsDir -Force
+          Write-Host "Staged installer exe: $($setupExe.Name)"
+
+          # Copy the .installer/ directory (contains the tar.zst archive + metadata)
+          $installerDir = Join-Path (Split-Path $setupExe.FullName) ".installer"
+          if (Test-Path $installerDir) {
+            $destInstallerDir = Join-Path $artifactsDir ".installer"
+            Copy-Item $installerDir -Destination $destInstallerDir -Recurse -Force
+            $archiveSize = (Get-ChildItem $destInstallerDir -Recurse -File | Measure-Object -Property Length -Sum).Sum / 1MB
+            Write-Host "Staged .installer/ directory ($([math]::Round($archiveSize, 1)) MB)"
+          } else {
+            Write-Error ".installer/ directory not found next to $($setupExe.FullName) — installer will not work"
+            exit 1
           }
 
       - name: Verify macOS signature and notarization
@@ -553,6 +572,7 @@ jobs:
             apps/app/electrobun/artifacts/*.tar.gz
             apps/app/electrobun/artifacts/*-update.json
             apps/app/electrobun/artifacts/*.patch
+            apps/app/electrobun/artifacts/.installer/**
           if-no-files-found: error
           retention-days: 30
 
