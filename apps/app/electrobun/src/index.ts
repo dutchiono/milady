@@ -239,11 +239,20 @@ function setupShutdown(apiBaseInterval: ReturnType<typeof setInterval>): void {
 async function main(): Promise<void> {
   console.log("[Main] Starting Milady (Electrobun)...");
 
-  // Set up app menu
-  setupApplicationMenu();
-
-  // Create main window
+  // Create main window FIRST — on Windows, CEF's message loop is not running
+  // until a native window exists.  Calling setApplicationMenu before that
+  // blocks on a Win32 menu command that can never be processed, causing a
+  // permanent deadlock.  On macOS the call is safe before any window because
+  // the global menu bar lives in the OS, not in a window.
   const win = await createMainWindow();
+
+  // Set up app menu — must come AFTER createMainWindow() on Windows.
+  // Skipped entirely on Windows: there is no global app menu bar in Win32
+  // (menus are per-window), and several roles used here (services, hide,
+  // hideOthers, unhide, front) are macOS-only and unsupported on Windows.
+  if (process.platform !== "win32") {
+    setupApplicationMenu();
+  }
 
   // Wire RPC handlers and native modules
   wireRpcAndModules(win);
