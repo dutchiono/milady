@@ -426,16 +426,27 @@ jobs:
           Copy-Item $setupExe.FullName -Destination $artifactsDir -Force
           Write-Host "Staged installer exe: $($setupExe.Name)"
 
-          # Copy the .installer/ directory (contains the tar.zst archive + metadata)
-          $installerDir = Join-Path (Split-Path $setupExe.FullName) ".installer"
-          if (Test-Path $installerDir) {
-            $destInstallerDir = Join-Path $artifactsDir ".installer"
-            Copy-Item $installerDir -Destination $destInstallerDir -Recurse -Force
-            $archiveSize = (Get-ChildItem $destInstallerDir -Recurse -File | Measure-Object -Property Length -Sum).Sum / 1MB
-            Write-Host "Staged .installer/ directory ($([math]::Round($archiveSize, 1)) MB)"
-          } else {
-            Write-Error ".installer/ directory not found next to $($setupExe.FullName) — installer will not work"
+          # The archive + metadata sit next to the exe in the build dir.
+          # The installer expects them inside .installer/ at runtime,
+          # so we create that structure in the artifacts directory.
+          $buildDir = Split-Path $setupExe.FullName
+          $destInstallerDir = Join-Path $artifactsDir ".installer"
+          New-Item -ItemType Directory -Force -Path $destInstallerDir | Out-Null
+
+          $archive = Get-ChildItem -Path $buildDir -File -Filter "*Setup*.tar.zst" -ErrorAction SilentlyContinue | Select-Object -First 1
+          $metadata = Get-ChildItem -Path $buildDir -File -Filter "*Setup*.metadata.json" -ErrorAction SilentlyContinue | Select-Object -First 1
+
+          if (-not $archive) {
+            Write-Error "No .tar.zst archive found next to $($setupExe.FullName) — installer will not work"
             exit 1
+          }
+
+          Copy-Item $archive.FullName -Destination $destInstallerDir -Force
+          Write-Host "Staged archive: $($archive.Name) ($([math]::Round($archive.Length / 1MB, 1)) MB)"
+
+          if ($metadata) {
+            Copy-Item $metadata.FullName -Destination $destInstallerDir -Force
+            Write-Host "Staged metadata: $($metadata.Name)"
           }
 
       - name: Verify macOS signature and notarization
