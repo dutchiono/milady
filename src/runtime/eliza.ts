@@ -232,6 +232,7 @@ function configureLocalEmbeddingPlugin(
   // Check if we're on macOS with Apple Silicon
   const isAppleSilicon =
     process.platform === "darwin" && process.arch === "arm64";
+  const isWindows = process.platform === "win32";
 
   const embeddingConfig = config?.embedding;
   const configuredModel = embeddingConfig?.model?.trim();
@@ -271,9 +272,14 @@ function configureLocalEmbeddingPlugin(
   };
 
   // Default to Nomic for zero-config local embeddings.
+  // Windows defaults to a smaller quantization for better stability with
+  // node-llama-cpp + Bun in packaged desktop builds.
   setEnvIfMissing(
     "LOCAL_EMBEDDING_MODEL",
-    configuredModel || "nomic-embed-text-v1.5.Q5_K_M.gguf",
+    configuredModel ||
+      (isWindows
+        ? "bge-small-en-v1.5.Q4_K_M.gguf"
+        : "nomic-embed-text-v1.5.Q5_K_M.gguf"),
   );
   setEnvFromConfig("LOCAL_EMBEDDING_MODEL_REPO", configuredRepo);
   setEnvFromConfig("LOCAL_EMBEDDING_DIMENSIONS", configuredDimensions);
@@ -288,10 +294,12 @@ function configureLocalEmbeddingPlugin(
   }
 
   // Performance tuning
-  // Disable mmap on Metal to prevent "different text" errors with some models
+  // Disable mmap on Apple Silicon and Windows for stability:
+  // - Apple Silicon: prevents known mmap/text consistency issues.
+  // - Windows: avoids Bun + ggml mmap crash path seen in packaged builds.
   setEnvIfMissing(
     "LOCAL_EMBEDDING_USE_MMAP",
-    isAppleSilicon ? "false" : "true",
+    isAppleSilicon || isWindows ? "false" : "true",
   );
 
   // Set default models directory if not present

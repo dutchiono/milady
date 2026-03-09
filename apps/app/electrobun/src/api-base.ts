@@ -1,4 +1,4 @@
-/**
+﻿/**
  * API Base Resolution for Electrobun
  *
  * Resolves the external API base URL from environment variables and provides
@@ -67,7 +67,10 @@ export function resolveExternalApiBase(
 export function pushApiBaseToRenderer(
   win: {
     webview: {
-      rpc?: { sendMessage?: Record<string, (payload: unknown) => void> };
+      rpc?: {
+        sendMessage?: Record<string, (payload: unknown) => void>;
+        send?: Record<string, (payload: unknown) => void>;
+      };
     };
   },
   base: string,
@@ -76,8 +79,11 @@ export function pushApiBaseToRenderer(
   const trimmedToken = apiToken?.trim();
   const payload = { base, token: trimmedToken || undefined };
   try {
-    win.webview.rpc?.sendMessage?.apiBaseUpdate?.(payload);
+    const rpcObj = win.webview.rpc;
+    const sendApiBase = rpcObj?.sendMessage?.apiBaseUpdate ?? rpcObj?.send?.apiBaseUpdate;
+    sendApiBase?.(payload);
   } catch {
     // Webview not ready yet -- will be retried on next poll cycle
   }
 }
+

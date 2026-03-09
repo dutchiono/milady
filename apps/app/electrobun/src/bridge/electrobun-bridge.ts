@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Electrobun Renderer Bridge
  *
  * Provides backward compatibility with the existing renderer code by
@@ -38,7 +38,7 @@ declare global {
 }
 
 // ============================================================================
-// Channel → RPC Method Mapping
+// Channel â†’ RPC Method Mapping
 // ============================================================================
 
 /**
@@ -151,7 +151,7 @@ const CHANNEL_TO_RPC: Record<string, string> = {
   "canvas:createWindow": "canvasCreateWindow",
   "canvas:destroyWindow": "canvasDestroyWindow",
   "canvas:navigate": "canvasNavigate",
-  // canvasEval RPC handler is registered in rpc-handlers.ts → canvas.eval()
+  // canvasEval RPC handler is registered in rpc-handlers.ts â†’ canvas.eval()
   "canvas:eval": "canvasEval",
   "canvas:snapshot": "canvasSnapshot",
   "canvas:a2uiPush": "canvasA2uiPush",
@@ -246,7 +246,7 @@ const PUSH_CHANNEL_TO_RPC: Record<string, string> = {
   "swabble:stateChanged": "swabbleStateChanged",
 };
 
-// Reverse mapping: RPC message name → Electron push channel
+// Reverse mapping: RPC message name â†’ Electron push channel
 const RPC_TO_PUSH_CHANNEL: Record<string, string> = {};
 for (const [channel, rpcName] of Object.entries(PUSH_CHANNEL_TO_RPC)) {
   RPC_TO_PUSH_CHANNEL[rpcName] = channel;
@@ -302,7 +302,7 @@ function getRpcProxy(): Record<
 const electronAPI = {
   ipcRenderer: {
     /**
-     * invoke() — maps to rpc.request[method](params)
+     * invoke() â€” maps to rpc.request[method](params)
      */
     invoke: async (channel: string, ...args: unknown[]): Promise<unknown> => {
       const rpcMethod = CHANNEL_TO_RPC[channel];
@@ -331,7 +331,7 @@ const electronAPI = {
         return await proxy[rpcMethod](params);
       } catch (err) {
         console.error(
-          `[ElectrobunBridge] RPC error for ${channel} → ${rpcMethod}:`,
+          `[ElectrobunBridge] RPC error for ${channel} â†’ ${rpcMethod}:`,
           err,
         );
         throw err;
@@ -339,14 +339,14 @@ const electronAPI = {
     },
 
     /**
-     * send() — fire-and-forget, same as invoke but discards result
+     * send() â€” fire-and-forget, same as invoke but discards result
      */
     send: (channel: string, ...args: unknown[]): void => {
       electronAPI.ipcRenderer.invoke(channel, ...args).catch(() => {});
     },
 
     /**
-     * on() — subscribe to push events from the Bun side
+     * on() â€” subscribe to push events from the Bun side
      */
     on: (channel: string, listener: IpcListener): void => {
       const rpcMessage = PUSH_CHANNEL_TO_RPC[channel];
@@ -365,7 +365,7 @@ const electronAPI = {
     },
 
     /**
-     * once() — subscribe to a single push event
+     * once() â€” subscribe to a single push event
      */
     once: (channel: string, listener: IpcListener): void => {
       const wrappedListener: IpcListener = (...args) => {
@@ -376,7 +376,7 @@ const electronAPI = {
     },
 
     /**
-     * removeListener() — unsubscribe from push events
+     * removeListener() â€” unsubscribe from push events
      */
     removeListener: (channel: string, listener: IpcListener): void => {
       const rpcMessage = PUSH_CHANNEL_TO_RPC[channel];
@@ -387,7 +387,7 @@ const electronAPI = {
     },
 
     /**
-     * removeAllListeners() — unsubscribe all listeners for a channel
+     * removeAllListeners() â€” unsubscribe all listeners for a channel
      */
     removeAllListeners: (channel: string): void => {
       const rpcMessage = PUSH_CHANNEL_TO_RPC[channel];
@@ -399,7 +399,7 @@ const electronAPI = {
   },
 
   /**
-   * Desktop Capturer — returns empty sources (graceful degradation)
+   * Desktop Capturer â€” returns empty sources (graceful degradation)
    */
   desktopCapturer: {
     getSources: async (_options: {
@@ -414,7 +414,7 @@ const electronAPI = {
   },
 
   /**
-   * Platform information — detected from user agent and environment
+   * Platform information â€” detected from user agent and environment
    */
   platform: {
     isMac: /Mac/.test(navigator.userAgent),
@@ -446,15 +446,34 @@ electronAPI.ipcRenderer
  */
 function setupApiBasePushHandler(): void {
   const ev = window.electroview;
-  if (ev?.rpc?.handleMessage?.apiBaseUpdate) {
-    ev.rpc.handleMessage.apiBaseUpdate(
-      (payload: { base: string; token?: string }) => {
-        window.__MILADY_API_BASE__ = payload.base;
-        if (payload.token) {
-          window.__MILADY_API_TOKEN__ = payload.token;
-        }
-      },
-    );
+  const onApiBaseUpdate = (payload: { base: string; token?: string }) => {
+    window.__MILADY_API_BASE__ = payload.base;
+    if (payload.token) {
+      window.__MILADY_API_TOKEN__ = payload.token;
+    }
+  };
+
+  const rpc = ev?.rpc as
+    | {
+        handleMessage?: {
+          apiBaseUpdate?: (
+            handler: (payload: { base: string; token?: string }) => void,
+          ) => void;
+        };
+        addMessageListener?: (
+          message: string,
+          handler: (payload: { base: string; token?: string }) => void,
+        ) => void;
+      }
+    | undefined;
+
+  if (rpc?.handleMessage?.apiBaseUpdate) {
+    rpc.handleMessage.apiBaseUpdate(onApiBaseUpdate);
+    return;
+  }
+
+  if (typeof rpc?.addMessageListener === "function") {
+    rpc.addMessageListener("apiBaseUpdate", onApiBaseUpdate);
   }
 }
 
@@ -486,3 +505,4 @@ window.__ELECTROBUN__ = true;
 window.__MILADY_RUNTIME__ = "electrobun";
 
 export {};
+

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * RPC Handler Registration for Electrobun
  *
  * Maps each RPC request method from MiladyRPCSchema.bun.requests
@@ -21,7 +21,7 @@ import { getSwabbleManager } from "./native/swabble";
 import { getTalkModeManager } from "./native/talkmode";
 import type { MiladyRPCSchema, PipState } from "./rpc-schema";
 
-// PiP state (simple in-memory store — no dedicated manager needed)
+// PiP state (simple in-memory store â€” no dedicated manager needed)
 let pipState: PipState = { enabled: false };
 
 /**
@@ -35,6 +35,28 @@ export function registerRpcHandlers(view: BrowserView<MiladyRPCSchema>): void {
   if (!rpc) {
     console.error("[RPC] No RPC instance on BrowserView");
     return;
+  }
+
+  // Electrobun RPC API compatibility:
+  // Newer Electrobun exposes setRequestHandler(...), older app code uses
+  // rpc.handleRequest.method(fn). Provide a local shim so this file can
+  // register handlers across both shapes.
+  const rpcCompat = rpc as unknown as {
+    handleRequest?: Record<string, (fn: (...args: unknown[]) => unknown) => void>;
+    setRequestHandler?: (handlers: Record<string, (...args: unknown[]) => unknown>) => void;
+  };
+  if (!rpcCompat.handleRequest && rpcCompat.setRequestHandler) {
+    const compatHandlers: Record<string, (...args: unknown[]) => unknown> = {};
+    rpcCompat.handleRequest = new Proxy(
+      {},
+      {
+        get: (_target, method: string) =>
+          (fn: (...args: unknown[]) => unknown) => {
+            compatHandlers[method] = fn;
+            rpcCompat.setRequestHandler?.(compatHandlers);
+          },
+      },
+    ) as Record<string, (fn: (...args: unknown[]) => unknown) => void>;
   }
 
   const agent = getAgentManager();
@@ -369,3 +391,4 @@ export function registerRpcHandlers(view: BrowserView<MiladyRPCSchema>): void {
 
   console.log("[RPC] All handlers registered");
 }
+

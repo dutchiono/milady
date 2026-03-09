@@ -1,16 +1,15 @@
-/**
- * Milady Desktop App — Electrobun Main Entry
+﻿/**
+ * Milady Desktop App â€” Electrobun Main Entry
  *
  * Creates the main BrowserWindow, wires up RPC handlers,
  * sets up system tray, application menu, and starts the agent.
  */
 
 import path from "node:path";
-import {
+import Electrobun, {
+  ApplicationMenu,
   type BrowserView,
   BrowserWindow,
-  Electrobun,
-  setApplicationMenu,
   Updater,
 } from "electrobun/bun";
 import { pushApiBaseToRenderer, resolveExternalApiBase } from "./api-base";
@@ -28,7 +27,7 @@ import {
 // ============================================================================
 
 function setupApplicationMenu(): void {
-  setApplicationMenu([
+  ApplicationMenu.setApplicationMenu([
     {
       label: "Milady",
       submenu: [
@@ -86,11 +85,15 @@ function setupApplicationMenu(): void {
 // ============================================================================
 
 async function createMainWindow(): Promise<BrowserWindow> {
-  // Resolve the renderer URL
+  // Default to packaged renderer. Dev URL is opt-in to avoid loading
+  // accidental local Bun/Vite servers in production installs.
+  const packagedRendererUrl = `file://${path.resolve(import.meta.dir, "../renderer/index.html")}`;
   const rendererUrl =
-    process.env.MILADY_RENDERER_URL ??
-    process.env.VITE_DEV_SERVER_URL ??
-    `file://${path.resolve(import.meta.dir, "../renderer/index.html")}`;
+    process.env.MILADY_ALLOW_DEV_RENDERER === "1"
+      ? process.env.MILADY_RENDERER_URL ??
+        process.env.VITE_DEV_SERVER_URL ??
+        packagedRendererUrl
+      : packagedRendererUrl;
 
   const win = new BrowserWindow({
     title: "Milady",
@@ -117,13 +120,12 @@ function wireRpcAndModules(win: BrowserWindow): void {
   // Uses typed RPC push messages instead of JS evaluation.
   const sendToWebview = (message: string, payload?: unknown): void => {
     const rpcMessage = PUSH_CHANNEL_TO_RPC_MESSAGE[message];
-    if (rpcMessage && view.rpc?.sendMessage) {
-      const sender = (
-        view.rpc.sendMessage as Record<
-          string,
-          ((p: unknown) => void) | undefined
-        >
-      )[rpcMessage];
+    if (rpcMessage && view.rpc) {
+      const rpcObj = view.rpc as unknown as {
+        sendMessage?: Record<string, ((p: unknown) => void) | undefined>;
+        send?: Record<string, ((p: unknown) => void) | undefined>;
+      };
+      const sender = rpcObj.sendMessage?.[rpcMessage] ?? rpcObj.send?.[rpcMessage];
       if (sender) {
         sender(payload ?? null);
         return;
@@ -214,9 +216,12 @@ function setupDeepLinks(win: BrowserWindow): void {
   // Electrobun handles urlSchemes from config automatically.
   // Listen for open-url events to route deep links to the renderer.
   Electrobun.events.on("open-url", (url: string) => {
-    if (win.webview.rpc?.sendMessage?.shareTargetReceived) {
-      win.webview.rpc.sendMessage.shareTargetReceived({ url });
-    }
+    const rpcObj = win.webview.rpc as unknown as {
+      sendMessage?: { shareTargetReceived?: (payload: { url: string }) => void };
+      send?: { shareTargetReceived?: (payload: { url: string }) => void };
+    };
+    const sendShare = rpcObj.sendMessage?.shareTargetReceived ?? rpcObj.send?.shareTargetReceived;
+    sendShare?.({ url });
   });
 }
 
@@ -239,7 +244,7 @@ function setupShutdown(apiBaseInterval: ReturnType<typeof setInterval>): void {
 async function main(): Promise<void> {
   console.log("[Main] Starting Milady (Electrobun)...");
 
-  // Create main window first — on Windows, CEF's event loop is not running
+  // Create main window first â€” on Windows, CEF's event loop is not running
   // until the first native window is created. Calling setApplicationMenu()
   // before that point causes the native FFI call to deadlock waiting for the
   // UI thread. Always create the window before touching any menu APIs.
@@ -311,3 +316,6 @@ main().catch((err) => {
   console.error("[Main] Fatal error during startup:", err);
   process.exit(1);
 });
+
+
+

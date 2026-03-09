@@ -1,4 +1,4 @@
-import type { ElectrobunConfig } from "electrobun";
+﻿import type { ElectrobunConfig } from "electrobun";
 
 export default {
   app: {
@@ -15,22 +15,30 @@ export default {
       entrypoint: "src/index.ts",
     },
     views: {},
+    copy: {
+      renderer: "renderer",
+      "staged/md": "md",
+      "staged/assets": "assets",
+    },
     mac: {
       codesign: true,
       notarize: true,
       defaultRenderer: "native",
     },
     linux: {
-      bundleCEF: true,
-      icon: "assets/appIcon.png",
+      bundleCEF: false,
     },
     win: {
-      bundleCEF: true,
-      icon: "assets/appIcon.ico",
+      bundleCEF: false,
     },
   },
   release: {
     baseUrl: "https://milady.ai/releases/",
-    generatePatch: true,
+    generatePatch: false,
   },
 } satisfies ElectrobunConfig;
+
+
+
+
+

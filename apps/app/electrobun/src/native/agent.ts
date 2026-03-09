@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Agent Native Module for Electrobun
  *
  * Embeds the Milady agent runtime (ElizaOS) as an isolated child process
@@ -91,13 +91,15 @@ function shortError(err: unknown, maxLen = 280): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve the milady-dist directory.
+ * Resolve the packaged runtime directory.
  *
  * Priority:
  *   1. MILADY_DIST_PATH env var (explicit override)
- *   2. Walk up from import.meta.dir to find milady-dist as a sibling
+ *   2. Walk up from import.meta.dir to find the packaged runtime folder
  */
 function resolveMiladyDistPath(): string {
+  const candidateNames = ["md", "milady-dist"];
+
   // 1. Env override
   const envPath = process.env.MILADY_DIST_PATH;
   if (envPath) {
@@ -110,13 +112,15 @@ function resolveMiladyDistPath(): string {
     );
   }
 
-  // 2. Walk up from import.meta.dir looking for milady-dist
+  // 2. Walk up from import.meta.dir looking for the packaged runtime dir
   let dir = import.meta.dir;
   const maxDepth = 10;
   for (let i = 0; i < maxDepth; i++) {
-    const candidate = path.join(dir, "milady-dist");
-    if (fs.existsSync(candidate)) {
-      return candidate;
+    for (const candidateName of candidateNames) {
+      const candidate = path.join(dir, candidateName);
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
     }
     const parent = path.dirname(dir);
     if (parent === dir) break; // reached filesystem root
@@ -124,9 +128,9 @@ function resolveMiladyDistPath(): string {
   }
 
   // 3. Fallback: relative to electrobun app root (3 levels up from native/)
-  const fallback = path.resolve(import.meta.dir, "../../../milady-dist");
+  const fallback = path.resolve(import.meta.dir, "../../../md");
   diagnosticLog(
-    `[Agent] Could not find milady-dist by walking up; using fallback: ${fallback}`,
+    `[Agent] Could not find packaged runtime by walking up; using fallback: ${fallback}`,
   );
   return fallback;
 }
@@ -286,9 +290,14 @@ export class AgentManager {
       const miladyDistPath = resolveMiladyDistPath();
       diagnosticLog(`[Agent] Resolved milady dist: ${miladyDistPath}`);
 
-      // Verify server.js exists
+      // Prefer the self-starting runtime entrypoint. server.js only exports helpers.
+      const elizaEntryPath = path.join(miladyDistPath, "eliza.js");
       const serverEntryPath = path.join(miladyDistPath, "server.js");
-      if (!fs.existsSync(serverEntryPath)) {
+      const runtimeEntryPath = fs.existsSync(elizaEntryPath)
+        ? elizaEntryPath
+        : serverEntryPath;
+
+      if (!fs.existsSync(runtimeEntryPath)) {
         const distExists = fs.existsSync(miladyDistPath);
         let contents = "<directory missing>";
         if (distExists) {
@@ -298,7 +307,7 @@ export class AgentManager {
             contents = "<unreadable>";
           }
         }
-        const errMsg = `server.js not found at ${serverEntryPath} (dist exists: ${distExists}, contents: ${contents})`;
+        const errMsg = `No runtime entrypoint found at ${elizaEntryPath} or ${serverEntryPath} (dist exists: ${distExists}, contents: ${contents})`;
         diagnosticLog(`[Agent] ${errMsg}`);
         this.status = {
           state: "error",
@@ -311,10 +320,8 @@ export class AgentManager {
         return this.status;
       }
 
-      // Check eliza.js presence for diagnostics (server.js loads it internally)
-      const elizaPath = path.join(miladyDistPath, "eliza.js");
       diagnosticLog(
-        `[Agent] server.js: exists, eliza.js: ${fs.existsSync(elizaPath)}`,
+        `[Agent] runtime entry: ${runtimeEntryPath}, server.js: ${fs.existsSync(serverEntryPath)}, eliza.js: ${fs.existsSync(elizaEntryPath)}`,
       );
 
       // Resolve port
@@ -358,7 +365,7 @@ export class AgentManager {
       }
 
       // Spawn the child process
-      const proc = Bun.spawn(["bun", "run", serverEntryPath], {
+      const proc = Bun.spawn(["bun", "run", runtimeEntryPath], {
         cwd: miladyDistPath,
         env: childEnv,
         stdout: "pipe",
@@ -684,3 +691,7 @@ export function getAgentManager(): AgentManager {
   }
   return agentManager;
 }
+
+
+
+
