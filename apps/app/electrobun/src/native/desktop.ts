@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Desktop Native Module for Electrobun
  *
  * Ports the Electron DesktopManager to use Electrobun APIs:
@@ -12,14 +12,14 @@
  * - Path resolution (Utils.paths)
  *
  * Key differences from Electron version:
- * - No ipcMain â€” methods are called directly from rpc-handlers.ts
+ * - No ipcMain - methods are called directly from rpc-handlers.ts
  * - Uses sendToWebview callback instead of mainWindow.webContents.send()
- * - No powerMonitor â€” returns stubs
- * - No nativeImage â€” tray icons use file paths directly
- * - No setOpacity on BrowserWindow â€” no-op
- * - No hide() on BrowserWindow â€” uses minimize() as fallback
- * - No app.setLoginItemSettings â€” stubbed
- * - No shell.beep â€” no-op
+ * - No powerMonitor - returns stubs
+ * - No nativeImage - tray icons use file paths directly
+ * - No setOpacity on BrowserWindow - no-op
+ * - No hide() on BrowserWindow - uses minimize() as fallback
+ * - No app.setLoginItemSettings - stubbed
+ * - No shell.beep - no-op
  */
 
 import fs from "node:fs";
@@ -72,27 +72,40 @@ interface ShowItemInFolderOptions {
 }
 
 // ============================================================================
-// Path name mapping: Electron path names â†’ Utils.paths equivalents
+// Path resolution: Electron path names -> Utils.paths equivalents
 // ============================================================================
 
-const PATH_NAME_MAP: Record<string, string | (() => string)> = {
-  home: Utils.paths.home,
-  appData: Utils.paths.appData,
-  userData: Utils.paths.userData,
-  temp: Utils.paths.temp,
-  cache: Utils.paths.cache,
-  logs: Utils.paths.logs,
-  documents: Utils.paths.documents,
-  downloads: Utils.paths.downloads,
-  desktop: Utils.paths.desktop,
-};
+function resolveKnownPath(name: string): string | null {
+  switch (name) {
+    case "home":
+      return Utils.paths.home;
+    case "appData":
+      return Utils.paths.appData;
+    case "userData":
+      return Utils.paths.userData;
+    case "temp":
+      return Utils.paths.temp;
+    case "cache":
+      return Utils.paths.cache;
+    case "logs":
+      return Utils.paths.logs;
+    case "documents":
+      return Utils.paths.documents;
+    case "downloads":
+      return Utils.paths.downloads;
+    case "desktop":
+      return Utils.paths.desktop;
+    default:
+      return null;
+  }
+}
 
 // ============================================================================
 // DesktopManager
 // ============================================================================
 
 /**
- * Desktop Manager â€” handles all native desktop features for Electrobun.
+ * Desktop Manager - handles all native desktop features for Electrobun.
  *
  * Unlike the Electron version, this does NOT register IPC handlers.
  * Methods are called directly from rpc-handlers.ts. Push events to the
@@ -248,7 +261,7 @@ export class DesktopManager {
   private setupTrayEvents(): void {
     if (!this.tray) return;
 
-    // Electrobun tray click is simpler â€” no bounds/modifiers
+    // Electrobun tray click is simpler - no bounds/modifiers
     this.tray.on("tray-clicked", () => {
       this.send("desktopTrayClick", {
         x: 0,
@@ -323,7 +336,7 @@ export class DesktopManager {
     enabled: boolean;
     openAsHidden?: boolean;
   }): Promise<void> {
-    // No equivalent in Electrobun â€” would require platform-specific
+    // No equivalent in Electrobun - would require platform-specific
     // LaunchAgent (macOS), systemd (Linux), or registry (Windows).
     // Stub for now.
     console.warn(
@@ -335,7 +348,7 @@ export class DesktopManager {
     enabled: boolean;
     openAsHidden: boolean;
   }> {
-    // Stubbed â€” no equivalent in Electrobun
+    // Stubbed - no equivalent in Electrobun
     return { enabled: false, openAsHidden: false };
   }
 
@@ -354,7 +367,7 @@ export class DesktopManager {
       win.setPosition(options.x ?? currentX, options.y ?? currentY);
     }
 
-    // minWidth/minHeight/maxWidth/maxHeight â€” not directly supported
+    // minWidth/minHeight/maxWidth/maxHeight - not directly supported
     // in Electrobun BrowserWindow. Skip silently.
 
     if (options.alwaysOnTop !== undefined) {
@@ -365,7 +378,7 @@ export class DesktopManager {
       win.setFullScreen(options.fullscreen);
     }
 
-    // opacity â€” no setOpacity in Electrobun (no-op)
+    // opacity - no setOpacity in Electrobun (no-op)
     if (options.opacity !== undefined) {
       // No-op: Electrobun BrowserWindow does not support setOpacity
     }
@@ -374,7 +387,7 @@ export class DesktopManager {
       win.setTitle(options.title);
     }
 
-    // resizable â€” not directly settable post-creation in Electrobun.
+    // resizable - not directly settable post-creation in Electrobun.
     // Skip silently.
   }
 
@@ -412,7 +425,7 @@ export class DesktopManager {
   }
 
   async hideWindow(): Promise<void> {
-    // No hide() in Electrobun â€” use minimize() as fallback
+    // No hide() in Electrobun - use minimize() as fallback
     this.getWindow().minimize();
   }
 
@@ -429,18 +442,18 @@ export class DesktopManager {
   }
 
   async isWindowVisible(): Promise<{ visible: boolean }> {
-    // No isVisible() in Electrobun â€” approximate: not minimized
+    // No isVisible() in Electrobun - approximate: not minimized
     return { visible: !this.getWindow().isMinimized() };
   }
 
   async isWindowFocused(): Promise<{ focused: boolean }> {
-    // No isFocused() in Electrobun â€” return true as best-effort stub
+    // No isFocused() in Electrobun - return true as best-effort stub
     // Window focus events are tracked via the "focus" event listener
     return { focused: true };
   }
 
   async setAlwaysOnTop(options: SetAlwaysOnTopOptions): Promise<void> {
-    // Electrobun setAlwaysOnTop takes a boolean â€” ignore level
+    // Electrobun setAlwaysOnTop takes a boolean - ignore level
     this.getWindow().setAlwaysOnTop(options.flag);
   }
 
@@ -491,7 +504,7 @@ export class DesktopManager {
   ): Promise<{ id: string }> {
     const id = `notification_${++this.notificationCounter}`;
 
-    // Electrobun Utils.showNotification â€” fire-and-forget, no event callbacks
+    // Electrobun Utils.showNotification - fire-and-forget, no event callbacks
     Utils.showNotification({
       title: options.title,
       body: options.body,
@@ -510,7 +523,7 @@ export class DesktopManager {
   // MARK: - Power Monitor
 
   async getPowerState(): Promise<PowerState> {
-    // No powerMonitor equivalent in Electrobun â€” return stub
+    // No powerMonitor equivalent in Electrobun - return stub
     return {
       onBattery: false,
       idleState: "unknown",
@@ -528,7 +541,7 @@ export class DesktopManager {
     // Electrobun does not have a built-in relaunch.
     // Quit and let the OS or process manager restart.
     console.warn(
-      "[DesktopManager] relaunch is not natively supported â€” calling quit()",
+      "[DesktopManager] relaunch is not natively supported - calling quit()",
     );
     Utils.quit();
   }
@@ -558,15 +571,13 @@ export class DesktopManager {
   }
 
   async getPath(options: { name: string }): Promise<{ path: string }> {
-    const mapped = PATH_NAME_MAP[options.name];
-    if (typeof mapped === "function") {
-      return { path: mapped() };
-    }
-    if (typeof mapped === "string") {
-      return { path: mapped };
+    const resolved = resolveKnownPath(options.name);
+    if (resolved) {
+      return { path: resolved };
     }
 
-    // Fallback: try to return a sensible default under userData
+    // Fallback: try to return a sensible default under userData.
+    // Resolve lazily so module import does not touch native path APIs.
     console.warn(
       `[DesktopManager] Unknown path name "${options.name}", falling back to userData`,
     );
@@ -582,7 +593,7 @@ export class DesktopManager {
       // Electrobun clipboardWriteImage expects image data
       Utils.clipboardWriteImage(options.image);
     }
-    // html/rtf not supported by Electrobun clipboard â€” drop silently
+    // html/rtf not supported by Electrobun clipboard - drop silently
   }
 
   async readFromClipboard(): Promise<ClipboardReadResult> {
@@ -643,7 +654,7 @@ export class DesktopManager {
   }
 
   async beep(): Promise<void> {
-    // No shell.beep() equivalent in Electrobun â€” no-op
+    // No shell.beep() equivalent in Electrobun - no-op
   }
 
   // MARK: - Helpers

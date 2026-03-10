@@ -10,11 +10,20 @@ param(
 # statement, making typed parameters like [string]$x = expr invalid.
 $ErrorActionPreference = "Stop"
 
-# Milady writes its startup log to AppData\Roaming\Milady on Windows,
-# NOT to $USERPROFILE\.config\Milady (which is a Unix-style path).
-$startupLog        = Join-Path $env:APPDATA "Milady\milady-startup.log"
+# Milady now writes its startup log to AppData\Roaming\Milady on Windows.
+# Keep the smoke test aligned with the runtime so failure diagnostics are visible.
+$startupLog         = Join-Path $env:APPDATA "Milady\milady-startup.log"
 $selfExtractionRoot = Join-Path $env:LOCALAPPDATA "com.miladyai.milady\canary\self-extraction"
-$tempExtractDir    = Join-Path $env:RUNNER_TEMP ("milady-windows-smoke-" + [Guid]::NewGuid().ToString("N"))
+$tempRoot           = if ($env:RUNNER_TEMP) {
+  $env:RUNNER_TEMP
+} elseif ($env:TEMP) {
+  $env:TEMP
+} elseif ($env:TMP) {
+  $env:TMP
+} else {
+  [System.IO.Path]::GetTempPath()
+}
+$tempExtractDir     = Join-Path $tempRoot ("milady-windows-smoke-" + [Guid]::NewGuid().ToString("N"))
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -170,7 +179,7 @@ try {
           break
         }
       } catch {
-        # Not ready yet — try next port / next iteration.
+        # Not ready yet - try next port / next iteration.
       }
     }
 

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Agent Native Module for Electrobun
  *
  * Embeds the Milady agent runtime (ElizaOS) as an isolated child process
@@ -50,8 +50,10 @@ let diagnosticLogPath: string | null = null;
 function getDiagnosticLogPath(): string {
   if (diagnosticLogPath !== null) return diagnosticLogPath;
   try {
-    // Prefer platform-standard config dir
-    const configDir = path.join(os.homedir(), ".config", "Milady");
+    const configDir =
+      process.platform === "win32" && process.env.APPDATA
+        ? path.join(process.env.APPDATA, "Milady")
+        : path.join(os.homedir(), ".config", "Milady");
     if (!fs.existsSync(configDir)) {
       fs.mkdirSync(configDir, { recursive: true });
     }
