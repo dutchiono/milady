@@ -1,4 +1,4 @@
-﻿import {
+import {
   cpSync,
   existsSync,
   mkdirSync,
@@ -231,39 +231,73 @@ function findBunStorePackageDir(
   return bestDir;
 }
 
+function versionMatchesRange(
+  packageDir: string,
+  range: string | undefined,
+): boolean {
+  if (!existsSync(packageDir)) {
+    return false;
+  }
+
+  const packageJson = readPackageJson(packageDir);
+  if (!packageJson?.version) {
+    return false;
+  }
+
+  const wantedMajor = preferredMajor(range);
+  if (wantedMajor === null) {
+    return true;
+  }
+
+  return (parseVersion(packageJson.version)[0] ?? 0) === wantedMajor;
+}
+
 function ensurePackageInStage(
   packageName: string,
   range: string | undefined,
+  requesterDir: string,
   seen = new Set<string>(),
 ): void {
-  if (seen.has(packageName)) {
+  const cacheKey = `${requesterDir}::${packageName}`;
+  if (seen.has(cacheKey)) {
     return;
   }
-  seen.add(packageName);
+  seen.add(cacheKey);
 
-  const stagedPackageDir = packagePath(stagedNodeModulesDir, packageName);
-  if (!existsSync(stagedPackageDir)) {
+  const requesterNodeModulesDir = path.join(requesterDir, "node_modules");
+  const localPackageDir = packagePath(requesterNodeModulesDir, packageName);
+  const rootPackageDir = packagePath(stagedNodeModulesDir, packageName);
+
+  let resolvedPackageDir: string | null = null;
+
+  if (versionMatchesRange(localPackageDir, range)) {
+    resolvedPackageDir = localPackageDir;
+  } else if (versionMatchesRange(rootPackageDir, range)) {
+    resolvedPackageDir = rootPackageDir;
+  } else {
     const bunStorePackageDir = findBunStorePackageDir(packageName, range);
     if (!bunStorePackageDir) {
       vendorWarnings.push(`${packageName}${range ? `@${range}` : ""}`);
       return;
     }
 
-    mkdirSync(path.dirname(stagedPackageDir), { recursive: true });
-    cpSync(bunStorePackageDir, stagedPackageDir, {
+    mkdirSync(path.dirname(localPackageDir), { recursive: true });
+    rmSync(localPackageDir, { recursive: true, force: true });
+    cpSync(bunStorePackageDir, localPackageDir, {
       recursive: true,
       dereference: true,
     });
     vendoredPackages += 1;
+    resolvedPackageDir = localPackageDir;
   }
 
-  const packageJson = readPackageJson(stagedPackageDir);
+  const packageJson = readPackageJson(resolvedPackageDir);
   if (!packageJson?.dependencies) {
     return;
   }
 
   for (const [dependencyName, dependencyRange] of Object.entries(packageJson.dependencies)) {
-    ensurePackageInStage(dependencyName, dependencyRange, seen);
+    ensurePackageInStage(dependencyName, dependencyRange, resolvedPackageDir, seen);
   }
 }
 
@@ -300,7 +334,7 @@ function ensureRuntimeDependencyClosure(): void {
     }
 
     for (const [dependencyName, dependencyRange] of Object.entries(packageJson.dependencies)) {
-      ensurePackageInStage(dependencyName, dependencyRange);
+      ensurePackageInStage(dependencyName, dependencyRange, packageDir);
     }
   }
 }
