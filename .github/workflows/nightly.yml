@@ -158,7 +158,7 @@ jobs:
   publish-npm:
     name: Publish to npm (nightly)
     needs: [check-commits, build-and-test]
-    if: needs.check-commits.outputs.has_new_commits == 'true'
+    if: needs.check-commits.outputs.has_new_commits == 'true' && secrets.NPM_TOKEN != ''
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -204,7 +204,7 @@ jobs:
   create-release:
     name: Create GitHub pre-release
     needs: [check-commits, build-and-test, publish-npm]
-    if: needs.check-commits.outputs.has_new_commits == 'true'
+    if: needs.check-commits.outputs.has_new_commits == 'true' && needs.publish-npm.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
