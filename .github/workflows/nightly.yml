@@ -158,7 +158,7 @@ jobs:
   publish-npm:
     name: Publish to npm (nightly)
     needs: [check-commits, build-and-test]
-    if: needs.check-commits.outputs.has_new_commits == 'true' && secrets.NPM_TOKEN != ''
+    if: needs.check-commits.outputs.has_new_commits == 'true' && github.repository == 'milady-ai/milady'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
