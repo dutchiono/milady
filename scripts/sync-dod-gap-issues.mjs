@@ -36,6 +36,17 @@ if (!DRY_RUN && !TOKEN) {
 
 const [owner, repo] = REPO_SLUG.split("/", 2);
 
+class GitHubApiError extends Error {
+  constructor(method, path, status, details) {
+    super(`${method} ${path} failed: ${status} ${details}`);
+    this.name = "GitHubApiError";
+    this.status = status;
+    this.details = details;
+    this.method = method;
+    this.path = path;
+  }
+}
+
 async function ghRequest(method, path, body) {
   const headers = {
     Accept: "application/vnd.github+json",
@@ -55,7 +66,7 @@ async function ghRequest(method, path, body) {
   const data = text ? JSON.parse(text) : null;
   if (!res.ok) {
     const details = data?.message ?? text ?? `HTTP ${res.status}`;
-    throw new Error(`${method} ${path} failed: ${res.status} ${details}`);
+    throw new GitHubApiError(method, path, res.status, details);
   }
   return data;
 }
@@ -103,6 +114,16 @@ async function ensureLabels(labels) {
 }
 
 async function main() {
+  if (!DRY_RUN) {
+    const repoMeta = await ghRequest("GET", `/repos/${owner}/${repo}`);
+    if (repoMeta?.has_issues === false) {
+      console.log(
+        `[sync-dod-gap-issues] skipping: issues are disabled for ${owner}/${repo}`,
+      );
+      return;
+    }
+  }
+
   const markdown = readFileSync(REPORT_PATH, "utf8");
   const drafts = parseIssueDrafts(markdown, REPORT_PATH);
   console.log(`parsed ${drafts.length} gap drafts from ${REPORT_PATH}`);
