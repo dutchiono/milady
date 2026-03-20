@@ -1032,6 +1032,7 @@ interface PluginListViewProps {
 function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
   const {
     plugins,
+    agentStatus,
     pluginStatusFilter,
     pluginSearch,
     pluginSettingsOpen,
@@ -1100,6 +1101,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
   const showToolbar = true;
   const allowCustomOrder = !isSocialMode;
   const showPluginManagementActions = !isSocialMode;
+  const canInstallPlugins = agentStatus?.state === "running";
 
   // Load plugins on mount
   useEffect(() => {
@@ -2325,7 +2327,10 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                                     variant="default"
                                     size="sm"
                                     className="h-8 rounded-xl px-4 text-[11px] font-bold"
-                                    disabled={installingPlugins.has(plugin.id)}
+                                    disabled={
+                                      installingPlugins.has(plugin.id) ||
+                                      !canInstallPlugins
+                                    }
                                     onClick={() =>
                                       handleInstallPlugin(
                                         plugin.id,
@@ -2340,6 +2345,12 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                                       : "Install Plugin"}
                                   </Button>
                                 </div>
+                                {!canInstallPlugins && (
+                                  <div className="text-xs text-muted">
+                                    Agent is still starting. Wait for status
+                                    "running" before installing.
+                                  </div>
+                                )}
                               </div>
                             )}
 
@@ -2963,7 +2974,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                         variant="default"
                         size="sm"
                         className="h-8 px-4 text-[11px] font-bold tracking-wide shadow-sm"
-                        disabled={installingPlugins.has(p.id)}
+                        disabled={installingPlugins.has(p.id) || !canInstallPlugins}
                         onClick={() =>
                           handleInstallPlugin(p.id, p.npmName ?? "")
                         }
@@ -2971,7 +2982,9 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                         {installingPlugins.has(p.id)
                           ? installProgress.get(p.npmName ?? "")?.message ||
                             "Installing..."
-                          : "Install Plugin"}
+                          : canInstallPlugins
+                            ? "Install Plugin"
+                            : "Wait For Runtime"}
                       </Button>
                     )}
                     {p.loadError && (

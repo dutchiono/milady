@@ -9048,8 +9048,33 @@ async function handleRequest(
       return;
     }
 
+    if (!state.runtime || state.agentState !== "running") {
+      json(
+        res,
+        {
+          ok: false,
+          error:
+            "Agent runtime is not ready yet. Wait until agent status is running, then retry plugin install.",
+        },
+        503,
+      );
+      return;
+    }
+
     try {
-      const pluginManager = requirePluginManager(state.runtime);
+      const pluginManager = state.runtime.getService("plugin_manager");
+      if (!isPluginManagerLike(pluginManager)) {
+        json(
+          res,
+          {
+            ok: false,
+            error:
+              "Plugin manager is not ready in the current runtime yet. Please retry in a few seconds.",
+          },
+          503,
+        );
+        return;
+      }
       const result = await pluginManager.installPlugin(
         pluginName,
         (progress: InstallProgressLike) => {
