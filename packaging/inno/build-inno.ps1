@@ -145,6 +145,52 @@ if (-not (Test-Path $miladyDistEntry)) {
   throw "Packaged app directory does not contain Resources\app\milady-dist\entry.js: $sourceDir"
 }
 
+$resourcesDir = Join-Path $sourceDir "Resources"
+if (-not (Test-Path $resourcesDir)) {
+  throw "Packaged app directory does not contain Resources directory: $sourceDir"
+}
+
+# Electrobun launcher/runtime reads these metadata files from Resources.
+# Ensure they exist at installer build time so extracted installs are always bootable.
+$versionJsonPath = Join-Path $resourcesDir "version.json"
+if (-not (Test-Path $versionJsonPath)) {
+  $versionJson = @{
+    identifier = "com.miladyai.milady"
+    channel = $normalizedChannel
+    name = "milady"
+    version = $Version
+  } | ConvertTo-Json -Compress
+  Set-Content -Path $versionJsonPath -Value $versionJson -Encoding utf8
+  Write-Host "Generated missing runtime metadata: $versionJsonPath"
+}
+
+$buildJsonPath = Join-Path $resourcesDir "build.json"
+if (-not (Test-Path $buildJsonPath)) {
+  $buildJson = @{
+    version = $Version
+    channel = $normalizedChannel
+    builtAt = (Get-Date).ToUniversalTime().ToString("o")
+  } | ConvertTo-Json -Compress
+  Set-Content -Path $buildJsonPath -Value $buildJson -Encoding utf8
+  Write-Host "Generated missing runtime metadata: $buildJsonPath"
+}
+
+# Electrobun 1.16 can resolve Resources relative to process.argv0.
+# On some launches argv0 is just "bun", which degrades to "../Resources/*"
+# and fails depending on current working directory. Patch to prefer execPath.
+$runtimeIndexPath = Join-Path $resourcesDir "app\bun\index.js"
+if (Test-Path $runtimeIndexPath) {
+  $runtimeIndex = Get-Content -Path $runtimeIndexPath -Raw
+  $patchedRuntimeIndex = $runtimeIndex.Replace(
+    "dirname(process.argv0)",
+    "dirname(process.execPath || process.argv0)"
+  )
+  if ($patchedRuntimeIndex -ne $runtimeIndex) {
+    Set-Content -Path $runtimeIndexPath -Value $patchedRuntimeIndex -Encoding utf8
+    Write-Host "Patched runtime resource path fallback in: $runtimeIndexPath"
+  }
+}
+
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
 $channelInstallName = Get-ChannelInstallName -NormalizedChannel $normalizedChannel
