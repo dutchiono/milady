@@ -480,6 +480,12 @@ function createRuntimeForChatSseTests(options?: {
   deleteRoom?: (roomId: UUID) => void | Promise<void>;
   ensureConnection?: (args: unknown) => void | Promise<void>;
   getRoom?: (roomId: UUID) => unknown | Promise<unknown>;
+  actions?: Array<{
+    name: string;
+    similes?: string[];
+    validate?: (...args: unknown[]) => unknown;
+    handler?: (...args: unknown[]) => unknown;
+  }>;
 }): AgentRuntime {
   const memoriesByRoom = new Map<string, Array<Record<string, unknown>>>();
 
@@ -591,6 +597,7 @@ function createRuntimeForChatSseTests(options?: {
     },
     getCache: async () => null,
     setCache: async () => {},
+    actions: options?.actions ?? [],
   };
 
   return runtimeSubset as unknown as AgentRuntime;
@@ -1220,6 +1227,81 @@ describe("API Server E2E (no runtime)", () => {
         } else {
           process.env.CHAT_KNOWLEDGE_TIMEOUT_MS = previousTimeout;
         }
+        await streamServer.close();
+      }
+    });
+
+    it("POST /api/chat recovers malformed XML action payload and executes fallback action", async () => {
+      const runtime = createRuntimeForChatSseTests({
+        actions: [
+          {
+            name: "CHECK_BALANCE",
+            handler: async (
+              _runtime,
+              _message,
+              _state,
+              _options,
+              callback?: (content: Content) => Promise<object[]>,
+            ) => {
+              await callback?.({
+                text: "Wallet Balances:\n\nSolana (3pYExx...2DnF):\n  SOL: 0.001000000 ($0.00)",
+                action: "CHECK_BALANCE_RESPONSE",
+              } as Content);
+              return {
+                text: "Wallet Balances",
+                success: true,
+              };
+            },
+          },
+        ],
+        handleMessage: async () => {
+          return {
+            responseContent: {
+              text: "Checking the Solana balance now.",
+              actions:
+                "<action><name>REPLY</name></action><action><name>CHECK_BALANCE</name><params><chain>solana</chain></params></action>",
+            },
+          };
+        },
+      });
+
+      const streamServer = await startApiServer({ port: 0, runtime });
+      try {
+        const { status, data } = await req(streamServer.port, "POST", "/api/chat", {
+          text: "how much SOL do you have?",
+          mode: "simple",
+        });
+
+        expect(status).toBe(200);
+        expect(String(data.text ?? "")).toContain("Wallet Balances:");
+        expect(String(data.text ?? "")).toContain("SOL: 0.001000000");
+      } finally {
+        await streamServer.close();
+      }
+    });
+
+    it("POST /api/chat does not force fallback actions for normal non-XML action payloads", async () => {
+      const runtime = createRuntimeForChatSseTests({
+        handleMessage: async () => {
+          return {
+            responseContent: {
+              text: "I am here.",
+              actions: ["REPLY"],
+            },
+          };
+        },
+      });
+
+      const streamServer = await startApiServer({ port: 0, runtime });
+      try {
+        const { status, data } = await req(streamServer.port, "POST", "/api/chat", {
+          text: "are you there?",
+          mode: "simple",
+        });
+
+        expect(status).toBe(200);
+        expect(String(data.text ?? "")).toBe("I am here.");
+      } finally {
         await streamServer.close();
       }
     });
