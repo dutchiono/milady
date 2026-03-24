@@ -80,7 +80,6 @@ If you are a coding agent submitting work:
 - **No secrets.** No real credentials, phone numbers, or live config in code.
 - **Minimal dependencies.** Don't add packages unless `src/` directly imports them.
 - **Commit messages:** concise, action-oriented (e.g., `milady: fix telegram reconnect on rate limit`)
-- **Local workspace rule:** Use a single local Milady repo folder and switch branches in place. Do not create extra clone/worktree folders (`milady-*`) unless explicitly required for a one-off recovery/debug task.
 - **Desktop agent startup:** Do not remove try/catch or `.catch()` in `apps/app/electrobun/src/native/agent.ts` as "excess" exception handling. Those guards keep the desktop app window usable when the runtime fails to load; see `docs/electrobun-startup.md`.
 - **NODE_PATH setup:** Do not remove the `NODE_PATH` code in `src/runtime/eliza.ts`, `scripts/run-node.mjs`, or `apps/app/electrobun/src/native/agent.ts`. It ensures dynamic plugin imports resolve correctly; see `docs/plugin-resolution-and-node-path.md`.
 - **Bun exports patch:** Do not remove the `patchBunExports` logic in `scripts/patch-deps.mjs`. It fixes plugin load failures under Bun when a published package's `exports["."].bun` points to a missing `src/` path; see "Bun and published package exports" in `docs/plugin-resolution-and-node-path.md`.
