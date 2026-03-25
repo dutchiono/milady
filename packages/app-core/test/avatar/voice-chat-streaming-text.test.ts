@@ -76,7 +76,7 @@ describe("useVoiceChat streaming text helpers", () => {
     expect(resolveVoiceMode(undefined, true, "sk-test")).toBe("own-key");
     expect(resolveVoiceMode(undefined, true, "[REDACTED]")).toBe("cloud");
     expect(resolveVoiceMode(undefined, true, "sk-t...1234")).toBe("cloud");
-    expect(resolveVoiceMode(undefined, false)).toBe("own-key");
+    expect(resolveVoiceMode(undefined, false)).toBe("cloud");
     expect(resolveVoiceMode("own-key", true, "")).toBe("own-key");
   });
 

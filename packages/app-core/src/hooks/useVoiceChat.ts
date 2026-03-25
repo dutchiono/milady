@@ -184,7 +184,7 @@ function resolveVoiceMode(
   apiKey?: string | null,
 ): VoiceMode {
   if (mode) return mode;
-  if (cloudConnected && !hasConfiguredApiKey(apiKey)) return "cloud";
+  if (!hasConfiguredApiKey(apiKey)) return "cloud";
   return "own-key";
 }
 
@@ -473,7 +473,10 @@ function resolveEffectiveVoiceConfig(
     (cloudConnected ? "elevenlabs" : undefined);
   // Prefer cloud ElevenLabs whenever cloud is connected, even if a stale
   // saved config still says "edge" from an earlier fallback session.
-  const provider = cloudConnected ? "elevenlabs" : inferredProvider;
+  const provider =
+    cloudConnected && inferredProvider !== "edge"
+      ? "elevenlabs"
+      : inferredProvider;
 
   if (!provider) return null;
   if (provider !== "elevenlabs") {
