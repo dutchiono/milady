@@ -29,34 +29,20 @@ function normalizeSecretEnvValue(value: string | undefined): string | null {
   return trimmed;
 }
 
-const SUPPORTED_CLOUD_TTS_VOICES = new Set([
-  "alloy",
-  "ash",
-  "ballad",
-  "coral",
-  "echo",
-  "nova",
-  "sage",
-  "shimmer",
-  "verse",
-]);
-
-function resolveCloudVoiceName(
+export function resolveCloudVoiceName(
   requestedVoice: unknown,
   env: NodeJS.ProcessEnv = process.env,
 ): string {
   const requested =
-    typeof requestedVoice === "string"
-      ? requestedVoice.trim().toLowerCase()
-      : "";
-  if (requested && SUPPORTED_CLOUD_TTS_VOICES.has(requested)) {
+    typeof requestedVoice === "string" ? requestedVoice.trim() : "";
+  if (requested) {
     return requested;
   }
-  const configured = env.ELIZAOS_CLOUD_TTS_VOICE?.trim().toLowerCase();
-  if (configured && SUPPORTED_CLOUD_TTS_VOICES.has(configured)) {
+  const configured = env.ELIZAOS_CLOUD_TTS_VOICE?.trim();
+  if (configured) {
     return configured;
   }
-  return "nova";
+  return "EXAVITQu4vr4xnSDxMaL";
 }
 
 function resolveCloudApiKey(
