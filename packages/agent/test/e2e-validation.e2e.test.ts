@@ -78,19 +78,31 @@ function runCliEntry(
   args: string[],
   timeout: number = 90_000,
 ): string {
-  const command = [
-    shellEscape(process.execPath),
-    "--import",
-    "tsx",
-    shellEscape(cliEntryPath),
-    ...args.map(shellEscape),
-  ].join(" ");
   try {
-    return execFileSync(
-      "sh",
-      ["-lc", command],
-      { cwd: repoRoot, timeout, encoding: "utf-8" },
-    );
+    if (process.platform === "win32") {
+      return execFileSync(
+        process.execPath,
+        ["--import", "tsx", cliEntryPath, ...args],
+        {
+          cwd: repoRoot,
+          timeout,
+          encoding: "utf-8",
+        },
+      );
+    }
+
+    const command = [
+      shellEscape(process.execPath),
+      "--import",
+      "tsx",
+      shellEscape(cliEntryPath),
+      ...args.map(shellEscape),
+    ].join(" ");
+    return execFileSync("sh", ["-lc", command], {
+      cwd: repoRoot,
+      timeout,
+      encoding: "utf-8",
+    });
   } catch {
     // Ignore non-zero exits/timeouts and treat them as no output.
     return "";

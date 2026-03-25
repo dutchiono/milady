@@ -343,7 +343,9 @@ describe("Skills Marketplace E2E", () => {
       await expect(fs.access(installRoot)).rejects.toThrow();
     });
 
-    it("blocks skill with symlink escape and cleans up (rollback)", async () => {
+    it.skipIf(
+      process.platform === "win32",
+    )("blocks skill with symlink escape and cleans up (rollback)", async () => {
       gitFixtureRef.files = {
         "skills/symlink-attack/SKILL.md": "# Symlink Attack",
         "skills/symlink-attack/safe.ts": "export default {};",
