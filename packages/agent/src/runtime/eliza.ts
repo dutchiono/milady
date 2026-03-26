@@ -68,6 +68,7 @@ import * as pluginAgentSkills from "@elizaos/plugin-agent-skills";
 import * as pluginAnthropic from "@elizaos/plugin-anthropic";
 import * as pluginCron from "@elizaos/plugin-cron";
 import * as pluginElizacloud from "@elizaos/plugin-elizacloud";
+import * as pluginEvm from "@elizaos/plugin-evm";
 import * as pluginExperience from "@elizaos/plugin-experience";
 import * as pluginForm from "@elizaos/plugin-form";
 import * as pluginKnowledge from "@elizaos/plugin-knowledge";
@@ -146,6 +147,7 @@ const STATIC_ELIZA_PLUGINS: Record<string, unknown> = {
   "@elizaos/plugin-anthropic": pluginAnthropic,
   "@elizaos/plugin-ollama": pluginOllama,
   "@elizaos/plugin-elizacloud": pluginElizacloud,
+  "@elizaos/plugin-evm": pluginEvm,
   "@elizaos/plugin-trust": pluginTrust,
   "@elizaos/plugin-todo": pluginTodo,
   "@elizaos/plugin-personality": pluginPersonality,
@@ -701,6 +703,8 @@ const OPTIONAL_PLUGIN_MAP: Readonly<Record<string, string>> = {
   repoPrompt: "@elizaos/plugin-repoprompt",
   "pi-ai": PI_AI_PLUGIN_PACKAGE,
   piAi: PI_AI_PLUGIN_PACKAGE,
+  evm: "@elizaos/plugin-evm",
+  wallet: "@elizaos/plugin-evm",
   x402: "@elizaos/plugin-x402",
   "coding-agent": "@elizaos/plugin-agent-orchestrator",
   "streaming-base": "@elizaos/plugin-streaming-base",
@@ -710,6 +714,16 @@ const OPTIONAL_PLUGIN_MAP: Readonly<Record<string, string>> = {
   "pumpfun-streaming": "@elizaos/plugin-pumpfun-streaming",
   "x-streaming": "@elizaos/plugin-x-streaming",
 };
+
+const EVM_PLUGIN_ENV_KEYS: readonly string[] = [
+  "EVM_PRIVATE_KEY",
+  "BSC_RPC_URL",
+  "ETHEREUM_RPC_URL",
+  "BASE_RPC_URL",
+  "AVALANCHE_RPC_URL",
+  "NODEREAL_BSC_RPC_URL",
+  "QUICKNODE_BSC_RPC_URL",
+];
 
 function looksLikePlugin(value: unknown): value is Plugin {
   if (!value || typeof value !== "object") return false;
@@ -1038,6 +1052,13 @@ export function collectPluginNames(config: ElizaConfig): Set<string> {
   // x402 plugin — auto-load when config section enabled
   if (config.x402?.enabled) {
     pluginsToLoad.add("@elizaos/plugin-x402");
+  }
+
+  if (
+    !isPluginExplicitlyDisabled("@elizaos/plugin-evm") &&
+    EVM_PLUGIN_ENV_KEYS.some((envKey) => process.env[envKey]?.trim())
+  ) {
+    pluginsToLoad.add("@elizaos/plugin-evm");
   }
 
   // Opinion plugin — auto-load when API key is present.

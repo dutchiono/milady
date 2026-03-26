@@ -30,6 +30,7 @@ export const CORE_PLUGINS: readonly string[] = [
  * Not loaded by default — require explicit configuration or have platform dependencies.
  */
 export const OPTIONAL_CORE_PLUGINS: readonly string[] = [
+  "@elizaos/plugin-evm", // EVM wallet + on-chain actions (trade/transfer/balance)
   "@elizaos/plugin-pdf", // PDF processing (published bundle broken in alpha.15)
   "@elizaos/plugin-cua", // CUA computer-use agent (cloud sandbox automation)
   "@elizaos/plugin-obsidian", // Obsidian vault CLI integration

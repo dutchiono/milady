@@ -27,6 +27,7 @@ vi.mock("@elizaos/plugin-discord", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-edge-tts", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-elevenlabs", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-elizacloud", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-evm", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-experience", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-form", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-google-genai", () => ({ default: {} }));
@@ -279,6 +280,12 @@ describe("collectPluginNames", () => {
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-agent-orchestrator")).toBe(false);
     expect(names.has("@elizaos/plugin-edge-tts")).toBe(false);
+  });
+
+  it("adds @elizaos/plugin-evm when EVM wallet env is present", () => {
+    process.env.EVM_PRIVATE_KEY = "0xabc123";
+    const names = collectPluginNames({} as ElizaConfig);
+    expect(names.has("@elizaos/plugin-evm")).toBe(true);
   });
 
   it("does not load @elizaos/plugin-shell when features.shellEnabled is false", () => {

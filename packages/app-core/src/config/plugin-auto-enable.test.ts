@@ -21,6 +21,7 @@ vi.mock("@elizaos/plugin-discord", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-edge-tts", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-elevenlabs", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-elizacloud", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-evm", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-experience", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-form", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-google-genai", () => ({ default: {} }));
@@ -440,6 +441,26 @@ describe("applyPluginAutoEnable — env vars", () => {
 
     expect(config.plugins?.allow).toContain("@stwd/eliza-plugin");
   });
+
+  it("auto-enables evm plugin when EVM_PRIVATE_KEY is set", () => {
+    const params = makeParams({
+      env: { EVM_PRIVATE_KEY: "0xabc123" },
+    });
+    const { config, changes } = applyPluginAutoEnable(params);
+
+    expect(config.plugins?.allow).toContain("evm");
+    expect(changes.some((c) => c.includes("EVM_PRIVATE_KEY"))).toBe(true);
+  });
+
+  it("auto-enables evm plugin when BSC_RPC_URL is set", () => {
+    const params = makeParams({
+      env: { BSC_RPC_URL: "https://bsc.example/rpc" },
+    });
+    const { config, changes } = applyPluginAutoEnable(params);
+
+    expect(config.plugins?.allow).toContain("evm");
+    expect(changes.some((c) => c.includes("BSC_RPC_URL"))).toBe(true);
+  });
 });
 
 // ============================================================================
@@ -718,6 +739,11 @@ describe("AUTH_PROVIDER_PLUGINS", () => {
   it("maps CUA env keys to cua plugin", () => {
     expect(AUTH_PROVIDER_PLUGINS.CUA_API_KEY).toBe("@elizaos/plugin-cua");
     expect(AUTH_PROVIDER_PLUGINS.CUA_HOST).toBe("@elizaos/plugin-cua");
+  });
+
+  it("maps EVM env keys to evm plugin", () => {
+    expect(AUTH_PROVIDER_PLUGINS.EVM_PRIVATE_KEY).toBe("@elizaos/plugin-evm");
+    expect(AUTH_PROVIDER_PLUGINS.BSC_RPC_URL).toBe("@elizaos/plugin-evm");
   });
 });
 

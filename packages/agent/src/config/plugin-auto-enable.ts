@@ -94,6 +94,13 @@ export const AUTH_PROVIDER_PLUGINS: Record<string, string> = {
   OBSIDAN_VAULT_PATH: "@elizaos/plugin-obsidian",
   REPOPROMPT_CLI_PATH: "@elizaos/plugin-repoprompt",
   CLAUDE_CODE_WORKBENCH_ENABLED: "@elizaos/plugin-claude-code-workbench",
+  EVM_PRIVATE_KEY: "@elizaos/plugin-evm",
+  BSC_RPC_URL: "@elizaos/plugin-evm",
+  ETHEREUM_RPC_URL: "@elizaos/plugin-evm",
+  BASE_RPC_URL: "@elizaos/plugin-evm",
+  AVALANCHE_RPC_URL: "@elizaos/plugin-evm",
+  NODEREAL_BSC_RPC_URL: "@elizaos/plugin-evm",
+  QUICKNODE_BSC_RPC_URL: "@elizaos/plugin-evm",
 };
 
 const FEATURE_PLUGINS: Record<string, string> = {
@@ -122,6 +129,7 @@ const FEATURE_PLUGINS: Record<string, string> = {
   computeruse: "@elizaos/plugin-computeruse",
   repoprompt: "@elizaos/plugin-repoprompt",
   claudeCodeWorkbench: "@elizaos/plugin-claude-code-workbench",
+  evm: "@elizaos/plugin-evm",
 };
 
 export function isConnectorConfigured(
