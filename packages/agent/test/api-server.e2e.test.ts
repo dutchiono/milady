@@ -3008,6 +3008,39 @@ describe("API Server E2E (no runtime)", () => {
       }
     });
 
+    it("POST /api/chat trims wallet progress filler when CHECK_BALANCE returns a real result", async () => {
+      const handleMessage = vi.fn<
+        Parameters<
+          NonNullable<AgentRuntime["messageService"]>["handleMessage"]
+        >,
+        ReturnType<NonNullable<AgentRuntime["messageService"]>["handleMessage"]>
+      >(async (_runtime, _message, onResponse) => {
+        await onResponse({ text: "checking your evm balance now..." } as Content);
+        await onResponse({
+          text: "Wallet Balances:\n\nBSC (0x51a5...a4Ee):\n  BNB: 0.1 ($63.03)",
+          action: "CHECK_BALANCE_RESPONSE",
+        } as Content);
+        return {
+          responseContent: {
+            text: "checking your evm balance now...Wallet Balances:\n\nBSC (0x51a5...a4Ee):\n  BNB: 0.1 ($63.03)",
+          },
+        };
+      });
+      const runtime = createRuntimeForChatSseTests({ handleMessage });
+      const server = await startApiServer({ port: 0, runtime });
+      try {
+        const { status, data } = await req(server.port, "POST", "/api/chat", {
+          text: "what is your wallet balance?",
+          mode: "power",
+        });
+        expect(status).toBe(200);
+        expect(String(data.text)).toContain("Wallet Balances:");
+        expect(String(data.text)).not.toContain("checking your evm balance now");
+      } finally {
+        await server.close();
+      }
+    });
+
     it("POST /api/chat turns wallet progress filler into an explicit execution failure when no action runs", async () => {
       const handleMessage = vi.fn<
         Parameters<

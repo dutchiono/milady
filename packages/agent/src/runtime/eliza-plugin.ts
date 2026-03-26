@@ -14,6 +14,9 @@ import type {
   ServiceClass,
 } from "@elizaos/core";
 import { AgentEventService } from "@elizaos/core";
+import { checkBalanceAction } from "../../../app-core/src/actions/check-balance";
+import { executeTradeAction } from "../../../app-core/src/actions/execute-trade";
+import { transferTokenAction } from "../../../app-core/src/actions/transfer-token";
 import { emoteAction } from "../actions/emote";
 import { restartAction } from "../actions/restart";
 import { sendMessageAction } from "../actions/send-message";
@@ -132,6 +135,9 @@ export function createElizaPlugin(config?: ElizaPluginConfig): Plugin {
     ],
 
     actions: [
+      checkBalanceAction,
+      transferTokenAction,
+      executeTradeAction,
       restartAction,
       // sendMessageAction,
       terminalAction,

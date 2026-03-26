@@ -3813,9 +3813,10 @@ async function generateChatResponse(
   }
 
   const noResponseFallback = opts?.resolveNoResponseText?.();
-  const finalText = isClientVisibleNoResponse(responseText)
+  const normalizedResponseText = trimWalletProgressPrefix(responseText);
+  const finalText = isClientVisibleNoResponse(normalizedResponseText)
     ? (noResponseFallback ?? (responseText || "(no response)"))
-    : responseText;
+    : normalizedResponseText;
 
   // Estimate token usage from text lengths (~4 chars per token)
   const promptText = extractCompatTextContent(message.content) ?? "";
@@ -6021,6 +6022,9 @@ const WALLET_ACTION_REQUIRED_INTENT_RE =
 const WALLET_PROGRESS_ONLY_RE =
   /\b(let me|i(?:'| wi)ll|checking|fetching|looking up|pulling|one moment|just a second|hold on)\b[\s\S]{0,80}\b(check|look|fetch|pull|get|verify|see|review)\b/i;
 
+const WALLET_PROGRESS_PREFIX_RE =
+  /^\s*(?:let me|i(?:'ll| will)|checking|fetching|looking up|pulling|one moment|just a second|hold on)[\s\S]{0,120}?(?:now|\.{3}|…)?\s*/i;
+
 function isWalletActionRequiredIntent(prompt: string): boolean {
   return (
     WALLET_CHAT_INTENT_RE.test(prompt) &&
@@ -6063,6 +6067,24 @@ function buildWalletActionNotExecutedReply(
     `RPC ready: ${rpcReady ? "yes" : "no"}.`,
     `Blocked reason: ${executionBlockedReason}`,
   ].join("\n");
+}
+
+function trimWalletProgressPrefix(text: string): string {
+  const balanceIdx = text.indexOf("Wallet Balances:");
+  if (balanceIdx > 0) {
+    return text.slice(balanceIdx).trimStart();
+  }
+
+  const markers = ["Transfer", "Swap", "Trade", "Transaction hash:"];
+  for (const marker of markers) {
+    const idx = text.indexOf(marker);
+    if (idx <= 0) continue;
+    const prefix = text.slice(0, idx);
+    if (WALLET_PROGRESS_PREFIX_RE.test(prefix)) {
+      return text.slice(idx).trimStart();
+    }
+  }
+  return text;
 }
 
 function resolveWalletModeGuidanceReply(
