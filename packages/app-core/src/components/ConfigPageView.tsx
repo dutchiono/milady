@@ -473,6 +473,35 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
   } = useApp();
 
   const [secretsOpen, setSecretsOpen] = useState(false);
+  const [privyConfigured, setPrivyConfigured] = useState<boolean | null>(null);
+  const [localSignerAvailable, setLocalSignerAvailable] = useState<
+    boolean | null
+  >(null);
+  const [pluginEvmLoaded, setPluginEvmLoaded] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [privy, selfStatus] = await Promise.all([
+          client.getPrivyStatus(),
+          client.getAgentSelfStatus(),
+        ]);
+        if (cancelled) return;
+        setPrivyConfigured(Boolean(privy?.configured));
+        setLocalSignerAvailable(Boolean(selfStatus?.wallet?.localSignerAvailable));
+        setPluginEvmLoaded(Boolean(selfStatus?.wallet?.pluginEvmLoaded));
+      } catch {
+        if (cancelled) return;
+        setPrivyConfigured(null);
+        setLocalSignerAvailable(null);
+        setPluginEvmLoaded(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   /* ── Mode: "cloud" or "custom" ─────────────────────────────────────── */
   const allCloud =
@@ -652,6 +681,11 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
         </>
       )}
 
+      <div className="mb-4 rounded-lg border border-border/50 bg-card/20 px-3 py-2 text-[11px] text-muted">
+        Wallet onboarding now starts in the Wallet page wizard. Use this
+        section for advanced RPC/provider configuration.
+      </div>
+
       {/* ═══════════════════════════════════════════════════════════════
           MODE SELECTOR: Eliza Cloud vs Custom RPC
           ═══════════════════════════════════════════════════════════════ */}
@@ -727,6 +761,84 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
             </span>
           )}
         </Button>
+      </div>
+
+      <div className="mb-5 rounded-lg border border-border p-3">
+        <div className="text-xs font-bold mb-1">Wallet Backends</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 text-[11px]">
+          <div className="rounded-md border border-border/60 bg-card/20 px-2 py-1.5">
+            <span className="text-muted">Eliza Cloud:</span>{" "}
+            <span className={elizaCloudConnected ? "text-accent" : "text-muted"}>
+              {elizaCloudConnected ? "connected" : "not connected"}
+            </span>
+          </div>
+          <div className="rounded-md border border-border/60 bg-card/20 px-2 py-1.5">
+            <span className="text-muted">Privy provisioning:</span>{" "}
+            <span
+              className={
+                privyConfigured === null
+                  ? "text-muted"
+                  : privyConfigured
+                    ? "text-accent"
+                    : "text-err"
+              }
+            >
+              {privyConfigured === null
+                ? "unknown"
+                : privyConfigured
+                  ? "configured"
+                  : "not configured"}
+            </span>
+          </div>
+          <div className="rounded-md border border-border/60 bg-card/20 px-2 py-1.5">
+            <span className="text-muted">Local signer:</span>{" "}
+            <span
+              className={
+                localSignerAvailable === null
+                  ? "text-muted"
+                  : localSignerAvailable
+                    ? "text-accent"
+                    : "text-muted"
+              }
+            >
+              {localSignerAvailable === null
+                ? "unknown"
+                : localSignerAvailable
+                  ? "available"
+                  : "not loaded"}
+            </span>
+          </div>
+          <div className="rounded-md border border-border/60 bg-card/20 px-2 py-1.5">
+            <span className="text-muted">plugin-evm:</span>{" "}
+            <span
+              className={
+                pluginEvmLoaded === null
+                  ? "text-muted"
+                  : pluginEvmLoaded
+                    ? "text-accent"
+                    : "text-err"
+              }
+            >
+              {pluginEvmLoaded === null
+                ? "unknown"
+                : pluginEvmLoaded
+                  ? "loaded"
+                  : "not loaded"}
+            </span>
+          </div>
+        </div>
+        {!elizaCloudConnected && !localSignerAvailable ? (
+          <p className="mt-2 text-[11px] text-err">
+            No executable wallet backend is active yet. Connect Cloud+Privy or
+            load an EVM private key for local signing.
+          </p>
+        ) : null}
+        {privyConfigured === false ? (
+          <p className="mt-1 text-[11px] text-err">
+            Privy wallet provisioning is disabled on this backend (missing
+            PRIVY_APP_ID / PRIVY_APP_SECRET).
+          </p>
+        ) : null}
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════

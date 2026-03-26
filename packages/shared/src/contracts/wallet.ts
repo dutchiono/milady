@@ -195,6 +195,8 @@ export type WalletNetworkMode = "mainnet" | "testnet";
 export interface WalletConfigStatus {
   selectedRpcProviders: WalletRpcSelections;
   walletNetwork?: WalletNetworkMode;
+  walletSource?: "managed" | "local" | "none";
+  automationMode?: "connectors-only" | "full";
   legacyCustomChains: WalletRpcChain[];
   alchemyKeySet: boolean;
   infuraKeySet: boolean;
@@ -203,12 +205,17 @@ export interface WalletConfigStatus {
   quickNodeBscRpcSet?: boolean;
   managedBscRpcReady?: boolean;
   cloudManagedAccess?: boolean;
+  rpcReady?: boolean;
   evmBalanceReady?: boolean;
   ethereumBalanceReady?: boolean;
   baseBalanceReady?: boolean;
   bscBalanceReady?: boolean;
   avalancheBalanceReady?: boolean;
   solanaBalanceReady?: boolean;
+  pluginEvmLoaded?: boolean;
+  pluginEvmRequired?: boolean;
+  executionReady?: boolean;
+  executionBlockedReason?: string | null;
   tradePermissionMode?: TradePermissionMode;
   tradeUserCanLocalExecute?: boolean;
   tradeAgentCanLocalExecute?: boolean;

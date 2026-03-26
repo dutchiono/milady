@@ -151,6 +151,8 @@ export interface WalletRouteDependencies {
   validatePrivateKey: typeof validatePrivateKey;
   importWallet: typeof importWallet;
   generateWalletForChain: typeof generateWalletForChain;
+  getAutomationMode: (config: ElizaConfig) => "connectors-only" | "full";
+  getPluginEvmLoaded: () => boolean;
 }
 
 export const DEFAULT_WALLET_ROUTE_DEPENDENCIES: WalletRouteDependencies = {
@@ -161,6 +163,8 @@ export const DEFAULT_WALLET_ROUTE_DEPENDENCIES: WalletRouteDependencies = {
   validatePrivateKey,
   importWallet,
   generateWalletForChain,
+  getAutomationMode: () => "full",
+  getPluginEvmLoaded: () => false,
 };
 
 export interface WalletRouteContext
@@ -381,6 +385,30 @@ export async function handleWalletRoutes(
   if (method === "GET" && pathname === "/api/wallet/config") {
     const addresses = deps.getWalletAddresses();
     const rpcReadiness = resolveWalletRpcReadiness(config);
+    const automationMode = deps.getAutomationMode(config);
+    const localSignerAvailable = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
+    const pluginEvmLoaded = deps.getPluginEvmLoaded();
+    const walletSource = localSignerAvailable
+      ? "local"
+      : addresses.evmAddress || addresses.solanaAddress
+        ? "managed"
+        : "none";
+    const rpcReady = Boolean(rpcReadiness.managedBscRpcReady);
+    const pluginEvmRequired = Boolean(addresses.evmAddress || localSignerAvailable);
+    const executionReady =
+      Boolean(addresses.evmAddress) &&
+      rpcReady &&
+      pluginEvmLoaded &&
+      automationMode === "full";
+    const executionBlockedReason = !addresses.evmAddress
+      ? "No EVM wallet is active yet."
+      : !rpcReady
+        ? "BSC RPC is not configured."
+        : !pluginEvmLoaded
+          ? "plugin-evm is not loaded, so EVM wallet execution is unavailable."
+          : automationMode !== "full"
+            ? "Agent automation is in connectors-only mode, so wallet execution is blocked in chat."
+            : null;
     const alchemyKeySet = Boolean(process.env.ALCHEMY_API_KEY?.trim());
     const ankrKeySet = Boolean(process.env.ANKR_API_KEY?.trim());
     const nodeRealSet = Boolean(process.env.NODEREAL_BSC_RPC_URL?.trim());
@@ -388,6 +416,8 @@ export async function handleWalletRoutes(
     const configStatus: WalletConfigStatus = {
       selectedRpcProviders: rpcReadiness.selectedRpcProviders,
       walletNetwork: resolveWalletNetworkMode(config),
+      walletSource,
+      automationMode,
       legacyCustomChains: rpcReadiness.legacyCustomChains,
       alchemyKeySet,
       infuraKeySet: Boolean(process.env.INFURA_API_KEY?.trim()),
@@ -396,6 +426,7 @@ export async function handleWalletRoutes(
       quickNodeBscRpcSet: quickNodeSet,
       managedBscRpcReady: rpcReadiness.managedBscRpcReady,
       cloudManagedAccess: rpcReadiness.cloudManagedAccess,
+      rpcReady,
       evmBalanceReady: rpcReadiness.evmBalanceReady,
       ethereumBalanceReady:
         alchemyKeySet || rpcReadiness.ethereumRpcUrls.length > 0,
@@ -406,6 +437,10 @@ export async function handleWalletRoutes(
       solanaBalanceReady: rpcReadiness.solanaBalanceReady,
       heliusKeySet: Boolean(process.env.HELIUS_API_KEY?.trim()),
       birdeyeKeySet: Boolean(process.env.BIRDEYE_API_KEY?.trim()),
+      pluginEvmLoaded,
+      pluginEvmRequired,
+      executionReady,
+      executionBlockedReason,
       evmChains: [
         "Ethereum",
         "Base",

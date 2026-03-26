@@ -462,6 +462,44 @@ Returned with status `403` when Steward rejects the transaction based on policy 
 
 ---
 
+### BSC testnet practice drill
+
+Use this workflow to validate real swap execution before conversational testing.
+
+1. Set testnet runtime env:
+   - `MILADY_WALLET_NETWORK=testnet`
+   - `ELIZA_DEV_ONCHAIN=0` (skip local Anvil override)
+   - `EVM_PRIVATE_KEY=<funded testnet key>`
+   - `BSC_TESTNET_RPC_URL=<reliable RPC>`
+   - `BSC_TESTNET_SWAP_ROUTER_ADDRESS=<testnet router>`
+   - `BSC_TESTNET_WRAPPED_NATIVE_ADDRESS=<testnet WBNB>`
+
+2. Run deterministic wallet preflight:
+
+```bash
+bun run test:wallet:preflight
+```
+
+3. Start API/UI in testnet mode:
+
+```bash
+bun run dev:wallet:testnet
+```
+
+4. Run API-first drill (`confirm:false` then `confirm:true`):
+
+```bash
+WALLET_DRILL_TOKEN_ADDRESS=0x... WALLET_DRILL_AMOUNT=0.001 bun run wallet:drill:testnet
+```
+
+The drill fails unless both conditions are true on submit:
+- `executed: true`
+- `execution.hash` is present
+
+If either is missing, treat the run as failed even if assistant text claims success.
+
+---
+
 ### GET /api/wallet/trade/tx-status
 
 Check the on-chain status of a previously submitted trade transaction.

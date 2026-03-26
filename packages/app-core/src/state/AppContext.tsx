@@ -4446,7 +4446,15 @@ function AppProviderInner({
           "info",
           4200,
         );
-        await client.updatePlugin(pluginId, { enabled });
+        if (
+          plugin?.managementMode === "core-optional" &&
+          typeof plugin.npmName === "string" &&
+          plugin.npmName.length > 0
+        ) {
+          await client.toggleCorePlugin(plugin.npmName, enabled);
+        } else {
+          await client.updatePlugin(pluginId, { enabled });
+        }
         await loadPlugins();
         setActionNotice(
           `${pluginName} ${enabled ? "enabled" : "disabled"}. Restart required to apply.`,
@@ -4816,8 +4824,9 @@ function AppProviderInner({
     if (!confirmed) return;
     const exportToken = await promptModal({
       title: "Wallet Export Token",
-      message: "Enter your wallet export token (MILADY_WALLET_EXPORT_TOKEN):",
-      placeholder: "MILADY_WALLET_EXPORT_TOKEN",
+      message:
+        "Enter your wallet export token (ELIZA_WALLET_EXPORT_TOKEN or MILADY_WALLET_EXPORT_TOKEN):",
+      placeholder: "ELIZA_WALLET_EXPORT_TOKEN",
       confirmLabel: "Export",
       cancelLabel: "Cancel",
     });
@@ -5640,8 +5649,6 @@ function AppProviderInner({
   // ── Cloud ──────────────────────────────────────────────────────────
 
   const handleCloudLogin = useCallback(async () => {
-    // Already connected (existing API key) — no need to re-authenticate.
-    if (elizaCloudConnected) return;
     if (elizaCloudLoginBusyRef.current || elizaCloudLoginBusy) return;
     elizaCloudLoginBusyRef.current = true;
     setElizaCloudLoginBusy(true);
@@ -5809,7 +5816,6 @@ function AppProviderInner({
       setElizaCloudLoginBusy(false);
     }
   }, [
-    elizaCloudConnected,
     elizaCloudLoginBusy,
     setActionNotice,
     pollCloudCredits,

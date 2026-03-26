@@ -1,6 +1,7 @@
 node_modules
 **/node_modules/
 .env
+.wallet.local.env
 dist
 storybook-static
 coverage
@@ -9,6 +10,8 @@ tmp/
 apps/app/electron/build/
 apps/app/electrobun/build/
 .bun
+.bun-install/
+.bun-tmp/
 .DS_Store
 **/.DS_Store
 

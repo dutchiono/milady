@@ -1687,6 +1687,28 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
     const isDragging = draggingId === p.id;
     const isDragOver = dragOverId === p.id && draggingId !== p.id;
     const pluginLinks = getPluginResourceLinks(p);
+    const capabilityBadgeClass =
+      p.capabilityStatus === "loaded"
+        ? "border-ok bg-[rgba(22,163,74,0.08)] text-ok"
+        : p.capabilityStatus === "auto-enabled"
+          ? "border-accent bg-accent/10 text-accent"
+          : p.capabilityStatus === "blocked"
+            ? "border-destructive bg-[rgba(153,27,27,0.04)] text-destructive"
+            : p.capabilityStatus === "missing-prerequisites"
+              ? "border-warn bg-[rgba(234,179,8,0.06)] text-warn"
+              : "border-border bg-surface text-muted";
+    const capabilityBadgeLabel =
+      p.capabilityStatus === "loaded"
+        ? "loaded"
+        : p.capabilityStatus === "auto-enabled"
+          ? "auto-enabled"
+          : p.capabilityStatus === "blocked"
+            ? "blocked"
+            : p.capabilityStatus === "missing-prerequisites"
+              ? "missing prerequisites"
+              : p.capabilityStatus === "disabled"
+                ? "disabled"
+                : null;
 
     return (
       <li
@@ -1774,6 +1796,14 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
           <span className="text-[10px] px-1.5 py-px border border-border bg-surface text-muted lowercase tracking-wide whitespace-nowrap">
             {categoryLabel}
           </span>
+          {capabilityBadgeLabel && (
+            <span
+              className={`text-[10px] px-1.5 py-px border lowercase tracking-wide whitespace-nowrap ${capabilityBadgeClass}`}
+              title={p.capabilityReason ?? undefined}
+            >
+              {capabilityBadgeLabel}
+            </span>
+          )}
           {p.version && (
             <span className="text-[10px] font-mono text-muted opacity-70">
               v{p.version}
@@ -1812,6 +1842,29 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
         >
           {p.description || "No description available"}
         </p>
+
+        {p.capabilityReason && (
+          <div className="px-3 pb-2 text-[11px] leading-relaxed text-muted-strong">
+            {p.capabilityReason}
+          </div>
+        )}
+
+        {(p.prerequisites?.length ?? 0) > 0 && (
+          <div className="flex flex-wrap gap-1.5 px-3 pb-2">
+            {p.prerequisites?.map((item) => (
+              <span
+                key={`${p.id}:${item.label}`}
+                className={`whitespace-nowrap border px-1.5 py-px text-[10px] lowercase tracking-wide ${
+                  item.met
+                    ? "border-ok/50 bg-ok/10 text-ok"
+                    : "border-border/50 bg-bg-accent/80 text-muted-strong"
+                }`}
+              >
+                {item.label}: {item.met ? "yes" : "no"}
+              </span>
+            ))}
+          </div>
+        )}
 
         {(p.tags?.length ?? 0) > 0 && (
           <div className="flex flex-wrap gap-1.5 px-3 pb-2">

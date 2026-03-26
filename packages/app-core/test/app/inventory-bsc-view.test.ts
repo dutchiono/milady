@@ -132,6 +132,8 @@ function createWalletConfig() {
       bsc: "nodereal",
       solana: "eliza-cloud",
     },
+    walletSource: "local",
+    automationMode: "full",
     legacyCustomChains: [],
     alchemyKeySet: true,
     infuraKeySet: false,
@@ -140,6 +142,7 @@ function createWalletConfig() {
     quickNodeBscRpcSet: true,
     managedBscRpcReady: true,
     cloudManagedAccess: true,
+    rpcReady: true,
     evmBalanceReady: true,
     ethereumBalanceReady: true,
     baseBalanceReady: true,
@@ -148,6 +151,10 @@ function createWalletConfig() {
     solanaBalanceReady: true,
     heliusKeySet: false,
     birdeyeKeySet: false,
+    pluginEvmLoaded: true,
+    pluginEvmRequired: true,
+    executionReady: true,
+    executionBlockedReason: null,
     evmChains: ["Ethereum", "Base", "BSC"],
     evmAddress: "0x1111111111111111111111111111111111111111",
     solanaAddress: "So11111111111111111111111111111111111111112",
@@ -267,9 +274,16 @@ function createContext(
     inventoryView: "tokens" | "nfts";
     inventorySort: "chain" | "symbol" | "value";
     inventoryChainFocus: "bsc" | "all";
+    walletAddresses: {
+      evmAddress: string | null;
+      solanaAddress: string | null;
+    };
     walletBalances: ReturnType<typeof createWalletBalances> | null;
     walletConfig: ReturnType<typeof createWalletConfig> | null;
     elizaCloudConnected: boolean;
+    elizaCloudLoginBusy: boolean;
+    elizaCloudLoginError: string | null;
+    handleCloudLogin: () => Promise<void>;
     walletError: string | null;
     t: (key: string) => string;
   }>,
@@ -291,6 +305,9 @@ function createContext(
     inventoryCollapseSolana: true,
     walletError: null,
     elizaCloudConnected: true,
+    elizaCloudLoginBusy: false,
+    elizaCloudLoginError: null,
+    handleCloudLogin: vi.fn(async () => {}),
     loadBalances: vi.fn(async () => {}),
     loadNfts: vi.fn(async () => {}),
     getBscTradePreflight: vi.fn(async () => createPreflight(true)),
@@ -343,6 +360,50 @@ beforeEach(() => {
 });
 
 describe("InventoryView unified wallets", () => {
+  it("guides first-time users to Privy login when no wallet address exists", async () => {
+    const ctx = createContext({
+      walletAddresses: { evmAddress: null, solanaAddress: null },
+      walletConfig: {
+        ...createWalletConfig(),
+        evmAddress: "",
+        solanaAddress: "",
+      },
+      elizaCloudConnected: true,
+    });
+    mockUseApp.mockReturnValue(ctx);
+
+    let tree!: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(InventoryView));
+    });
+
+    const content = text(tree.root);
+    expect(content).toContain("wallet.noOnchainWallet");
+    expect(content).toContain("Managed (Privy)");
+
+    const managedButton = tree.root
+      .findAllByType("button")
+      .find((node) => text(node).includes("Managed (Privy)"));
+    expect(managedButton).toBeDefined();
+
+    await act(async () => {
+      managedButton?.props.onClick();
+      await flushAsync();
+    });
+
+    const loginButton = tree.root
+      .findAllByType("button")
+      .find((node) => text(node).includes("Log in with Privy"));
+    expect(loginButton).toBeDefined();
+
+    await act(async () => {
+      loginButton?.props.onClick();
+      await flushAsync();
+    });
+
+    expect(ctx.handleCloudLogin).toHaveBeenCalledTimes(1);
+  });
+
   it("defaults to a unified all-chains wallet view", async () => {
     const ctx = createContext();
     mockUseApp.mockImplementation(() => ctx);
@@ -367,6 +428,22 @@ describe("InventoryView unified wallets", () => {
           node.props["data-testid"] === "wallet-token-preflight",
       ),
     ).toHaveLength(0);
+  });
+
+  it("shows a wallet capability panel with plugin-evm readiness", async () => {
+    const ctx = createContext();
+    mockUseApp.mockImplementation(() => ctx);
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(InventoryView));
+    });
+
+    const content = text(tree?.root);
+    expect(content).toContain("EVM Wallet Capability");
+    expect(content).toContain("Ready for wallet actions");
+    expect(content).toContain("plugin-evm");
+    expect(content).toContain("Loaded");
   });
 
   it("shows no balances when every chain is empty", async () => {

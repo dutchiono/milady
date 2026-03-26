@@ -356,6 +356,77 @@ function patchAutonomousResetAllowedSegments() {
 patchAutonomousResetAllowedSegments();
 
 /**
+ * Patch @elizaos/plugin-evm strict action-spec requirement.
+ *
+ * Some plugin-evm builds call requireActionSpec("BRIDGE"/"GOV_*"/...) during
+ * module init. If the paired @elizaos/core action spec set does not include
+ * one of those names, startup crashes before runtime boot.
+ *
+ * We make requireActionSpec() tolerant by returning a minimal fallback spec
+ * instead of throwing. This keeps plugin booting and allows the app to run
+ * wallet flows even when optional action docs are missing.
+ *
+ * Remove once plugin-evm and core action-spec packages are version-aligned.
+ */
+function patchPluginEvmMissingActionSpecCrash() {
+  const relPaths = ["dist/index.js", "dist/node/index.node.js"];
+  const searchDirs = [resolve(root, "node_modules/@elizaos/plugin-evm")];
+  const bunCacheDir = resolve(root, "node_modules/.bun");
+  if (existsSync(bunCacheDir)) {
+    try {
+      for (const entry of readdirSync(bunCacheDir)) {
+        if (entry.startsWith("@elizaos+plugin-evm@")) {
+          searchDirs.push(
+            resolve(bunCacheDir, entry, "node_modules/@elizaos/plugin-evm"),
+          );
+        }
+      }
+    } catch {}
+  }
+
+  const brokenBlock = [
+    "function requireActionSpec(name) {",
+    "  const spec = getActionSpec(name);",
+    "  if (!spec) {",
+    "    throw new Error(`Action spec not found: ${name}`);",
+    "  }",
+    "  return spec;",
+    "}",
+  ].join("\n");
+  const fixedBlock = [
+    "function requireActionSpec(name) {",
+    "  const spec = getActionSpec(name);",
+    "  if (!spec) {",
+    '    return { name, description: `${name} action` };',
+    "  }",
+    "  return spec;",
+    "}",
+  ].join("\n");
+
+  let patched = 0;
+  for (const dir of searchDirs) {
+    for (const relPath of relPaths) {
+      const target = resolve(dir, relPath);
+      if (!existsSync(target)) continue;
+      let src = readFileSync(target, "utf8");
+      if (!src.includes(brokenBlock)) continue;
+      src = src.replace(brokenBlock, fixedBlock);
+      writeFileSync(target, src, "utf8");
+      patched++;
+      console.log(
+        `[patch-deps] Applied plugin-evm missing action-spec fallback: ${target}`,
+      );
+    }
+  }
+  if (patched > 0) {
+    console.log(
+      `[patch-deps] plugin-evm: fixed ${patched} strict action-spec check(s).`,
+    );
+  }
+}
+patchPluginEvmMissingActionSpecCrash();
+
+/**
  * Vite caches prebundled dependencies under node_modules/.vite. When patch-deps
  * rewrites installed @elizaos packages, that cache can keep serving the old
  * upstream app-core bundle until it is cleared or Vite is forced to rebuild.

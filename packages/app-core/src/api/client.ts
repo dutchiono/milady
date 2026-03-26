@@ -288,6 +288,24 @@ export interface ApplyProductionWalletDefaultsResponse {
   clearedSecrets: string[];
 }
 
+export interface PrivyStatusResponse {
+  enabled: boolean;
+  configured: boolean;
+}
+
+export interface WalletGenerateResponse {
+  ok: boolean;
+  wallets: Array<{ chain: "evm" | "solana"; address: string }>;
+  warnings?: string[];
+}
+
+export interface WalletImportResponse {
+  ok: boolean;
+  chain: "evm" | "solana";
+  address: string;
+  warnings?: string[];
+}
+
 export interface AgentSelfStatusSnapshot {
   generatedAt: string;
   state: AgentState;
@@ -299,6 +317,7 @@ export interface AgentSelfStatusSnapshot {
   shellEnabled: boolean;
   wallet: {
     mode: "privy" | "hybrid";
+    walletSource?: "managed" | "local" | "none";
     evmAddress: string | null;
     evmAddressShort: string | null;
     solanaAddress: string | null;
@@ -308,6 +327,11 @@ export interface AgentSelfStatusSnapshot {
     hasSolana: boolean;
     localSignerAvailable: boolean;
     managedBscRpcReady: boolean;
+    rpcReady?: boolean;
+    pluginEvmLoaded?: boolean;
+    pluginEvmRequired?: boolean;
+    executionReady?: boolean;
+    executionBlockedReason?: string | null;
   };
   plugins: {
     totalActive: number;
@@ -612,6 +636,16 @@ export interface PluginInfo {
   homepage?: string;
   repository?: string;
   setupGuideUrl?: string;
+  autoEnabled?: boolean;
+  managementMode?: "standard" | "core-optional";
+  capabilityStatus?:
+    | "loaded"
+    | "auto-enabled"
+    | "blocked"
+    | "missing-prerequisites"
+    | "disabled";
+  capabilityReason?: string | null;
+  prerequisites?: Array<{ label: string; met: boolean }>;
 }
 
 export interface CorePluginEntry {
@@ -3398,6 +3432,26 @@ export class MiladyClient {
   }
   async getWalletConfig(): Promise<WalletConfigStatus> {
     return this.fetch("/api/wallet/config");
+  }
+  async getPrivyStatus(): Promise<PrivyStatusResponse> {
+    return this.fetch("/api/privy/status");
+  }
+  async generateWallet(
+    chain: "evm" | "solana" | "both" = "both",
+  ): Promise<WalletGenerateResponse> {
+    return this.fetch("/api/wallet/generate", {
+      method: "POST",
+      body: JSON.stringify({ chain }),
+    });
+  }
+  async importWallet(
+    chain: "evm" | "solana",
+    privateKey: string,
+  ): Promise<WalletImportResponse> {
+    return this.fetch("/api/wallet/import", {
+      method: "POST",
+      body: JSON.stringify({ chain, privateKey }),
+    });
   }
   async updateWalletConfig(
     config: WalletConfigUpdateRequest,

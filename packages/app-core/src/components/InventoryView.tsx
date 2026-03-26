@@ -6,9 +6,11 @@
  */
 
 import type { StewardStatusResponse } from "@miladyai/app-core/api";
+import { client } from "@miladyai/app-core/api";
 import { useApp } from "@miladyai/app-core/state";
 import {
   Button,
+  Input,
   Select,
   SelectContent,
   SelectItem,
@@ -100,6 +102,9 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
     loadBalances,
     loadNfts,
     elizaCloudConnected,
+    elizaCloudLoginBusy,
+    elizaCloudLoginError,
+    handleCloudLogin,
     setTab,
     setState,
     setActionNotice,
@@ -109,8 +114,14 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
     getBscTradeTxStatus,
     getStewardStatus,
     copyToClipboard,
+    handleExportKeys,
     t,
   } = useApp();
+
+  const cloudLoginHelpUrl = useMemo(() => {
+    const match = elizaCloudLoginError?.match(/https?:\/\/[^\s]+/i);
+    return match ? match[0] : null;
+  }, [elizaCloudLoginError]);
 
   // ── Tracked tokens state ──────────────────────────────────────────
   const [trackedTokens, setTrackedTokens] = useState<TrackedToken[]>(() =>
@@ -122,6 +133,27 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
   // ── Steward status ────────────────────────────────────────────────
   const [stewardStatus, setStewardStatus] =
     useState<StewardStatusResponse | null>(null);
+  const [privyConfigured, setPrivyConfigured] = useState<boolean | null>(null);
+  const [localSignerAvailable, setLocalSignerAvailable] = useState<
+    boolean | null
+  >(null);
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
+  const [wizardMode, setWizardMode] = useState<"managed" | "local" | null>(
+    null,
+  );
+  const [wizardBusy, setWizardBusy] = useState(false);
+  const [wizardNotice, setWizardNotice] = useState<{
+    tone: "info" | "success" | "error";
+    text: string;
+  } | null>(null);
+  const [wizardAddresses, setWizardAddresses] = useState<{
+    evmAddress: string | null;
+    solanaAddress: string | null;
+  } | null>(null);
+  const [localImportChain, setLocalImportChain] = useState<"evm" | "solana">(
+    "evm",
+  );
+  const [localImportKey, setLocalImportKey] = useState("");
 
   useEffect(() => {
     if (typeof getStewardStatus !== "function") {
@@ -140,6 +172,28 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
       cancelled = true;
     };
   }, [getStewardStatus]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [privy, selfStatus] = await Promise.all([
+          client.getPrivyStatus(),
+          client.getAgentSelfStatus(),
+        ]);
+        if (cancelled) return;
+        setPrivyConfigured(Boolean(privy?.configured));
+        setLocalSignerAvailable(Boolean(selfStatus?.wallet?.localSignerAvailable));
+      } catch {
+        if (cancelled) return;
+        setPrivyConfigured(null);
+        setLocalSignerAvailable(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // ── RPC + wallet readiness ───────────────────────────────────────
   const cfg = walletConfig;
@@ -238,6 +292,35 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
     evmAddr ? { label: "EVM", address: evmAddr } : null,
     solAddr ? { label: "Solana", address: solAddr } : null,
   ].filter((item): item is { label: string; address: string } => Boolean(item));
+  const addressStatusRows = [
+    { label: "EVM", address: evmAddr ?? null },
+    { label: "Solana", address: solAddr ?? null },
+  ] as const;
+  const capabilityRows = [
+    {
+      label: "Wallet source",
+      value: cfg?.walletSource === "local"
+        ? "Local signer"
+        : cfg?.walletSource === "managed"
+          ? "Managed (Privy/Cloud)"
+          : "Not ready",
+    },
+    {
+      label: "BSC RPC",
+      value: cfg?.rpcReady ? "Ready" : "Not configured",
+    },
+    {
+      label: "plugin-evm",
+      value: cfg?.pluginEvmLoaded ? "Loaded" : "Not loaded",
+    },
+    {
+      label: "Automation mode",
+      value: cfg?.automationMode ?? "unknown",
+    },
+  ] as const;
+  const capabilitySummary = cfg?.executionReady
+    ? "Ready for wallet actions"
+    : cfg?.executionBlockedReason ?? "Wallet execution is blocked";
 
   const chainItemMeta = useMemo(() => {
     const totalAssetCount = countVisibleAssetsForFocus("all", tokenRows);
@@ -400,6 +483,132 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
     [copyToClipboard, setActionNotice, t],
   );
 
+  const refreshWalletIdentity = useCallback(async (): Promise<{
+    evmAddress: string | null;
+    solanaAddress: string | null;
+  } | null> => {
+    try {
+      const cfgNow = await client.getWalletConfig();
+      const nextAddresses = {
+        evmAddress: cfgNow.evmAddress ?? null,
+        solanaAddress: cfgNow.solanaAddress ?? null,
+      };
+      setState("walletConfig", cfgNow);
+      setState("walletAddresses", nextAddresses);
+      setState("walletError", null);
+      return nextAddresses;
+    } catch (err) {
+      setState(
+        "walletError",
+        `Failed to refresh wallet status: ${
+          err instanceof Error ? err.message : "network error"
+        }`,
+      );
+      return null;
+    }
+  }, [setState]);
+
+  const handleWizardModeSelect = useCallback((mode: "managed" | "local") => {
+    setWizardMode(mode);
+    setWizardStep(2);
+    setWizardNotice(null);
+  }, []);
+
+  const handleManagedRefresh = useCallback(async () => {
+    setWizardBusy(true);
+    setWizardNotice(null);
+    const refreshed = await refreshWalletIdentity();
+    if (refreshed?.evmAddress || refreshed?.solanaAddress) {
+      setWizardAddresses(refreshed);
+      setWizardStep(3);
+      setWizardNotice({
+        tone: "success",
+        text: "Managed wallet detected. You can continue to wallet assets.",
+      });
+    } else {
+      setWizardNotice({
+        tone: "error",
+        text:
+          privyConfigured === false
+            ? "Privy provisioning is not configured on this backend. Ask the operator to set PRIVY_APP_ID and PRIVY_APP_SECRET."
+            : "No managed wallet address yet. Complete login and try Refresh Wallet Status again.",
+      });
+    }
+    setWizardBusy(false);
+  }, [privyConfigured, refreshWalletIdentity]);
+
+  const handleGenerateLocalWallet = useCallback(
+    async (chain: "evm" | "solana" | "both") => {
+      setWizardBusy(true);
+      setWizardNotice(null);
+      try {
+        const result = await client.generateWallet(chain);
+        const refreshed = await refreshWalletIdentity();
+        const fallback = {
+          evmAddress:
+            result.wallets.find((w) => w.chain === "evm")?.address ?? null,
+          solanaAddress:
+            result.wallets.find((w) => w.chain === "solana")?.address ?? null,
+        };
+        setWizardAddresses({
+          evmAddress: refreshed?.evmAddress ?? fallback.evmAddress,
+          solanaAddress: refreshed?.solanaAddress ?? fallback.solanaAddress,
+        });
+        setWizardStep(3);
+        setWizardNotice({
+          tone: "success",
+          text: `Generated ${result.wallets.length} wallet${result.wallets.length === 1 ? "" : "s"} successfully.`,
+        });
+      } catch (err) {
+        setWizardNotice({
+          tone: "error",
+          text: `Failed to generate wallet: ${err instanceof Error ? err.message : "unknown error"}`,
+        });
+      } finally {
+        setWizardBusy(false);
+      }
+    },
+    [refreshWalletIdentity],
+  );
+
+  const handleImportLocalWallet = useCallback(async () => {
+    const pk = localImportKey.trim();
+    if (!pk) {
+      setWizardNotice({
+        tone: "error",
+        text: "Private key is required for import.",
+      });
+      return;
+    }
+    setWizardBusy(true);
+    setWizardNotice(null);
+    try {
+      const result = await client.importWallet(localImportChain, pk);
+      const refreshed = await refreshWalletIdentity();
+      setLocalImportKey("");
+      setWizardAddresses({
+        evmAddress:
+          refreshed?.evmAddress ??
+          (result.chain === "evm" ? result.address : null),
+        solanaAddress:
+          refreshed?.solanaAddress ??
+          (result.chain === "solana" ? result.address : null),
+      });
+      setWizardStep(3);
+      setWizardNotice({
+        tone: "success",
+        text: `Imported ${result.chain.toUpperCase()} wallet successfully.`,
+      });
+    } catch (err) {
+      setWizardNotice({
+        tone: "error",
+        text: `Failed to import wallet: ${err instanceof Error ? err.message : "unknown error"}`,
+      });
+    } finally {
+      setWizardBusy(false);
+    }
+  }, [localImportChain, localImportKey, refreshWalletIdentity]);
+
   // ════════════════════════════════════════════════════════════════════
   // Render
   // ════════════════════════════════════════════════════════════════════
@@ -431,14 +640,276 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
             <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted">
               {t("wallet.noOnchainWalletHint")}
             </p>
-            <Button
-              variant="default"
-              size="sm"
-              className="mt-5 rounded-full px-5"
-              onClick={() => setTab("settings")}
-            >
-              {t("nav.settings")}
-            </Button>
+            <div className="mx-auto mt-4 max-w-lg rounded-2xl border border-border/30 bg-bg/20 px-4 py-3 text-left text-xs text-muted">
+              <div className="font-medium text-txt-strong">
+                Wallet setup wizard (Step {wizardStep} of 3)
+              </div>
+              {wizardStep === 1 ? (
+                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-auto flex-col items-start rounded-xl px-4 py-3 text-left"
+                    onClick={() => handleWizardModeSelect("managed")}
+                  >
+                    <span className="text-sm font-semibold">Managed (Privy)</span>
+                    <span className="text-xs text-muted">
+                      Best for regular users. Login and wallet appears automatically.
+                    </span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-auto flex-col items-start rounded-xl px-4 py-3 text-left"
+                    onClick={() => handleWizardModeSelect("local")}
+                  >
+                    <span className="text-sm font-semibold">Local wallet</span>
+                    <span className="text-xs text-muted">
+                      Generate/import your own keys and execute with local signer.
+                    </span>
+                  </Button>
+                </div>
+              ) : null}
+              {wizardStep === 2 && wizardMode === "managed" ? (
+                <div className="mt-3 space-y-2">
+                  <ol className="list-inside list-decimal space-y-1">
+                    <li>Click "Log in with Privy".</li>
+                    <li>Finish auth in browser.</li>
+                    <li>Click "Refresh Wallet Status".</li>
+                  </ol>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="rounded-full px-5"
+                      disabled={elizaCloudLoginBusy || wizardBusy}
+                      onClick={() => void handleCloudLogin()}
+                    >
+                      {elizaCloudLoginBusy ? "Opening Privy login..." : "Log in with Privy"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full px-5"
+                      disabled={wizardBusy}
+                      onClick={() => void handleManagedRefresh()}
+                    >
+                      {wizardBusy ? "Checking..." : "Refresh Wallet Status"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="rounded-full px-5"
+                      onClick={() => {
+                        setWizardMode(null);
+                        setWizardStep(1);
+                      }}
+                    >
+                      Back
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+              {wizardStep === 2 && wizardMode === "local" ? (
+                <div className="mt-3 space-y-3">
+                  <div>
+                    <div className="mb-1 font-medium text-txt-strong">Generate</div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={wizardBusy}
+                        onClick={() => void handleGenerateLocalWallet("both")}
+                      >
+                        Generate both
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={wizardBusy}
+                        onClick={() => void handleGenerateLocalWallet("evm")}
+                      >
+                        Generate EVM
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={wizardBusy}
+                        onClick={() => void handleGenerateLocalWallet("solana")}
+                      >
+                        Generate Solana
+                      </Button>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mb-1 font-medium text-txt-strong">Import</div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        variant={localImportChain === "evm" ? "default" : "outline"}
+                        disabled={wizardBusy}
+                        onClick={() => setLocalImportChain("evm")}
+                      >
+                        EVM
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={localImportChain === "solana" ? "default" : "outline"}
+                        disabled={wizardBusy}
+                        onClick={() => setLocalImportChain("solana")}
+                      >
+                        Solana
+                      </Button>
+                    </div>
+                    <Input
+                      className="mt-2"
+                      type="password"
+                      placeholder={
+                        localImportChain === "evm"
+                          ? "Paste EVM private key (0x...)"
+                          : "Paste Solana private key (base58)"
+                      }
+                      value={localImportKey}
+                      onChange={(e) => setLocalImportKey(e.target.value)}
+                    />
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        variant="default"
+                        disabled={wizardBusy}
+                        onClick={() => void handleImportLocalWallet()}
+                      >
+                        {wizardBusy ? "Importing..." : "Import wallet"}
+                      </Button>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mb-1 font-medium text-txt-strong">Export / Recover</div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={wizardBusy}
+                      onClick={() => void handleExportKeys()}
+                    >
+                      Export keys
+                    </Button>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="rounded-full px-5"
+                    onClick={() => {
+                      setWizardMode(null);
+                      setWizardStep(1);
+                    }}
+                  >
+                    Back
+                  </Button>
+                </div>
+              ) : null}
+              {wizardStep === 3 ? (
+                <div className="mt-3 space-y-2">
+                  <div className="font-medium text-txt-strong">Setup complete</div>
+                  <div className="rounded-lg border border-border/30 bg-bg/15 px-3 py-2">
+                    <div>EVM: {wizardAddresses?.evmAddress || "not generated"}</div>
+                    <div>Solana: {wizardAddresses?.solanaAddress || "not generated"}</div>
+                    <div className="mt-1">
+                      Execution mode:{" "}
+                      {localSignerAvailable
+                        ? "can execute (local-key)"
+                        : "user-sign only"}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setWizardStep(2);
+                    }}
+                  >
+                    Back to actions
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+            <div className="mx-auto mt-3 grid max-w-md grid-cols-1 gap-2 text-left text-xs sm:grid-cols-3">
+              <div className="rounded-lg border border-border/30 bg-bg/15 px-2 py-1.5">
+                <span className="text-muted">Cloud:</span>{" "}
+                <span className={elizaCloudConnected ? "text-accent" : "text-muted"}>
+                  {elizaCloudConnected ? "connected" : "not connected"}
+                </span>
+              </div>
+              <div className="rounded-lg border border-border/30 bg-bg/15 px-2 py-1.5">
+                <span className="text-muted">Privy:</span>{" "}
+                <span
+                  className={
+                    privyConfigured === null
+                      ? "text-muted"
+                      : privyConfigured
+                        ? "text-accent"
+                        : "text-err"
+                  }
+                >
+                  {privyConfigured === null
+                    ? "unknown"
+                    : privyConfigured
+                      ? "configured"
+                      : "not configured"}
+                </span>
+              </div>
+              <div className="rounded-lg border border-border/30 bg-bg/15 px-2 py-1.5">
+                <span className="text-muted">Local signer:</span>{" "}
+                <span
+                  className={
+                    localSignerAvailable === null
+                      ? "text-muted"
+                      : localSignerAvailable
+                        ? "text-accent"
+                        : "text-muted"
+                  }
+                >
+                  {localSignerAvailable === null
+                    ? "unknown"
+                    : localSignerAvailable
+                      ? "loaded"
+                      : "not loaded"}
+                </span>
+              </div>
+            </div>
+            {privyConfigured === false ? (
+              <p className="mx-auto mt-2 max-w-md text-xs text-err">
+                Privy wallet provisioning is not configured on this backend yet.
+                Ask the operator to set PRIVY_APP_ID and PRIVY_APP_SECRET.
+              </p>
+            ) : null}
+            {wizardNotice ? (
+              <div
+                className={`mx-auto mt-2 max-w-md rounded-xl border px-3 py-2 text-left text-xs ${
+                  wizardNotice.tone === "error"
+                    ? "border-err/30 bg-err/10 text-err"
+                    : wizardNotice.tone === "success"
+                      ? "border-accent/30 bg-accent/10 text-accent"
+                      : "border-border/40 bg-bg/25 text-muted"
+                }`}
+              >
+                {wizardNotice.text}
+              </div>
+            ) : null}
+            {elizaCloudLoginError ? (
+              <div className="mx-auto mt-3 max-w-md rounded-xl border border-err/30 bg-err/10 px-3 py-2 text-left text-xs text-err">
+                <p>{elizaCloudLoginError}</p>
+                {cloudLoginHelpUrl ? (
+                  <a
+                    href={cloudLoginHelpUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-1 inline-flex underline"
+                  >
+                    Open login link
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -615,6 +1086,21 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
                   {t("wallet.receiveHint")}
                 </div>
               )}
+              <div className="space-y-1 pt-1">
+                {addressStatusRows.map((row) => (
+                  <div
+                    key={row.label}
+                    className="rounded-lg border border-border/35 bg-bg/15 px-3 py-2"
+                  >
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                      {row.label} Address
+                    </div>
+                    <div className="mt-1 break-all font-mono text-[11px] leading-relaxed text-txt-strong">
+                      {row.address || "not generated"}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </aside>
@@ -734,6 +1220,51 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
                   </Button>
                 </div>
               )}
+
+              <div
+                className="rounded-2xl border border-border/45 bg-card/55 px-4 py-4 shadow-sm"
+                data-testid="wallet-capability-panel"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
+                      EVM Wallet Capability
+                    </div>
+                    <div className="mt-1 text-sm font-semibold text-txt-strong">
+                      {capabilitySummary}
+                    </div>
+                  </div>
+                  <span
+                    className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${
+                      cfg?.executionReady
+                        ? "border-ok/40 bg-ok/10 text-ok"
+                        : "border-border/50 bg-bg/25 text-muted"
+                    }`}
+                  >
+                    {cfg?.executionReady ? "ready" : "blocked"}
+                  </span>
+                </div>
+                <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                  {capabilityRows.map((row) => (
+                    <div
+                      key={row.label}
+                      className="rounded-xl border border-border/35 bg-bg/15 px-3 py-2"
+                    >
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                        {row.label}
+                      </div>
+                      <div className="mt-1 text-sm text-txt-strong">
+                        {row.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {cfg?.executionBlockedReason && (
+                  <div className="mt-3 rounded-xl border border-border/35 bg-bg/15 px-3 py-2 text-sm text-muted">
+                    {cfg.executionBlockedReason}
+                  </div>
+                )}
+              </div>
 
               {headerWarning && (
                 <div className="rounded-2xl border border-accent/25 bg-accent/8 px-4 py-3 text-sm shadow-sm">
