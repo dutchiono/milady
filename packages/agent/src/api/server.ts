@@ -5856,7 +5856,7 @@ export function isAllowedHost(req: http.IncomingMessage): boolean {
 
   const bindHost = (
     process.env.ELIZA_API_BIND ??
-    process.env.ELIZA_API_BIND ??
+    process.env.MILADY_API_BIND ??
     ""
   )
     .trim()
@@ -5897,7 +5897,7 @@ export function resolveCorsOrigin(origin?: string): string | null {
   // require an explicit token, so this only relaxes the browser origin check.
   const bindHost = (
     process.env.ELIZA_API_BIND ??
-    process.env.ELIZA_API_BIND ??
+    process.env.MILADY_API_BIND ??
     ""
   )
     .trim()
@@ -6331,6 +6331,23 @@ function extractWsQueryToken(url: URL): string | null {
   return token?.trim() || null;
 }
 
+function hasWsQueryToken(url: URL): boolean {
+  return (
+    url.searchParams.has("token") ||
+    url.searchParams.has("apiKey") ||
+    url.searchParams.has("api_key")
+  );
+}
+
+function extractWebSocketHandshakeToken(
+  request: http.IncomingMessage,
+  url: URL,
+): string | null {
+  const headerToken = extractAuthToken(request);
+  if (headerToken) return headerToken;
+  return extractWsQueryToken(url);
+}
+
 function isWebSocketAuthorized(
   request: http.IncomingMessage,
   url: URL,
@@ -6338,12 +6355,9 @@ function isWebSocketAuthorized(
   const expected = getConfiguredApiToken();
   if (!expected) return true;
 
-  const headerToken = extractAuthToken(request);
-  if (headerToken) return tokenMatches(expected, headerToken);
-
-  const queryToken = extractWsQueryToken(url);
-  if (!queryToken) return false;
-  return tokenMatches(expected, queryToken);
+  const handshakeToken = extractWebSocketHandshakeToken(request, url);
+  if (!handshakeToken) return false;
+  return tokenMatches(expected, handshakeToken);
 }
 
 export interface WebSocketUpgradeRejection {
@@ -6366,7 +6380,20 @@ export function resolveWebSocketUpgradeRejection(
     return { status: 403, reason: "Origin not allowed" };
   }
 
-  if (!isWebSocketAuthorized(req, wsUrl)) {
+  const expected = getConfiguredApiToken();
+  if (!expected) {
+    return null;
+  }
+
+  if (
+    process.env.ELIZA_ALLOW_WS_QUERY_TOKEN !== "1" &&
+    hasWsQueryToken(wsUrl)
+  ) {
+    return { status: 401, reason: "Unauthorized" };
+  }
+
+  const handshakeToken = extractWebSocketHandshakeToken(req, wsUrl);
+  if (handshakeToken && !tokenMatches(expected, handshakeToken)) {
     return { status: 401, reason: "Unauthorized" };
   }
 
@@ -17228,7 +17255,7 @@ export async function startApiServer(opts?: {
   const host =
     (
       process.env.ELIZA_API_BIND ??
-      process.env.ELIZA_API_BIND ??
+      process.env.MILADY_API_BIND ??
       "127.0.0.1"
     ).trim() || "127.0.0.1";
   ensureApiTokenForBindHost(host);
@@ -18062,8 +18089,9 @@ export async function startApiServer(opts?: {
 
   // Handle WebSocket connections
   wss.on("connection", (ws: WebSocket, request: http.IncomingMessage) => {
+    let wsUrl: URL;
     try {
-      const wsUrl = new URL(
+      wsUrl = new URL(
         request.url ?? "/",
         `http://${request.headers.host ?? "localhost"}`,
       );
@@ -18071,41 +18099,66 @@ export async function startApiServer(opts?: {
       if (clientId) wsClientIds.set(ws, clientId);
     } catch {
       // Ignore malformed WS URL metadata; auth/path were already validated.
+      wsUrl = new URL("ws://localhost/ws");
     }
 
-    wsClients.add(ws);
-    addLog("info", "WebSocket client connected", "websocket", [
-      "server",
-      "websocket",
-    ]);
+    let isAuthenticated = isWebSocketAuthorized(request, wsUrl);
 
-    // Send initial status and latest stream events.
-    try {
-      ws.send(
-        JSON.stringify({
-          type: "status",
-          state: state.agentState,
-          agentName: state.agentName,
-          model: state.model,
-          startedAt: state.startedAt,
-          startup: state.startup,
-          pendingRestart: state.pendingRestartReasons.length > 0,
-          pendingRestartReasons: state.pendingRestartReasons,
-        }),
-      );
-      const replay = state.eventBuffer.slice(-120);
-      for (const event of replay) {
-        ws.send(JSON.stringify(event));
+    const activateAuthenticatedConnection = () => {
+      wsClients.add(ws);
+      addLog("info", "WebSocket client connected", "websocket", [
+        "server",
+        "websocket",
+      ]);
+
+      try {
+        ws.send(
+          JSON.stringify({
+            type: "status",
+            state: state.agentState,
+            agentName: state.agentName,
+            model: state.model,
+            startedAt: state.startedAt,
+            startup: state.startup,
+            pendingRestart: state.pendingRestartReasons.length > 0,
+            pendingRestartReasons: state.pendingRestartReasons,
+          }),
+        );
+        const replay = state.eventBuffer.slice(-120);
+        for (const event of replay) {
+          ws.send(JSON.stringify(event));
+        }
+      } catch (err) {
+        logger.error(
+          `[eliza-api] WebSocket send error: ${err instanceof Error ? err.message : err}`,
+        );
       }
-    } catch (err) {
-      logger.error(
-        `[eliza-api] WebSocket send error: ${err instanceof Error ? err.message : err}`,
-      );
+    };
+
+    if (isAuthenticated) {
+      activateAuthenticatedConnection();
     }
 
     ws.on("message", (data) => {
       try {
         const msg = JSON.parse(data.toString());
+        if (!isAuthenticated) {
+          const expected = getConfiguredApiToken();
+          if (
+            expected &&
+            msg.type === "auth" &&
+            typeof msg.token === "string" &&
+            tokenMatches(expected, msg.token.trim())
+          ) {
+            isAuthenticated = true;
+            ws.send(JSON.stringify({ type: "auth-ok" }));
+            activateAuthenticatedConnection();
+          } else {
+            logger.warn("[eliza-api] WebSocket message rejected before auth");
+            ws.close(1008, "Unauthorized");
+          }
+          return;
+        }
         if (msg.type === "ping") {
           ws.send(JSON.stringify({ type: "pong" }));
         } else if (msg.type === "active-conversation") {

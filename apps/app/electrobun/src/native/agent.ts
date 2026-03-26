@@ -767,6 +767,15 @@ export class AgentManager {
 
     configureDesktopLocalApiAuth();
 
+    this.status = {
+      state: "starting",
+      agentName: null,
+      port: null,
+      startedAt: null,
+      error: null,
+    };
+    this.emitStatus();
+
     // Reset per-startup flags
     this.pgliteRecoveryDone = false;
 
@@ -799,15 +808,6 @@ export class AgentManager {
         `[Agent] Port ${preferredPort} busy — using ${apiPort} for embedded API (set MILADY_AGENT_RECLAIM_STALE_PORT=1 to try reclaiming the preferred port first)`,
       );
     }
-
-    this.status = {
-      state: "starting",
-      agentName: null,
-      port: null,
-      startedAt: null,
-      error: null,
-    };
-    this.emitStatus();
 
     try {
       // Resolve milady-dist path
@@ -872,7 +872,6 @@ export class AgentManager {
 
       const childEnv: Record<string, string> = {
         ...(process.env as Record<string, string>),
-        MILADY_PORT: String(apiPort),
       };
 
       // node-llama-cpp crashes Bun on Windows during packaged startup.
@@ -1197,6 +1196,7 @@ export class AgentManager {
             `[Agent] Child process exited unexpectedly with code ${exitCode} (pid: ${proc.pid})`,
           );
           this.childProcess = null;
+          if (this.childProcess !== null) return;
 
           // Auto-recover from PGLite migration failures by deleting the DB
           // and spawning a fresh process (new process = fresh WASM state).
@@ -1213,6 +1213,7 @@ export class AgentManager {
               startedAt: null,
               error: null,
             };
+            this.emitStatus();
             // Delay slightly so OS releases file handles before respawn
             setTimeout(() => void this.start(), 500);
             return;
