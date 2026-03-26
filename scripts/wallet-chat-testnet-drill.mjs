@@ -41,6 +41,8 @@ function parseArgs(argv) {
     prompts: [],
     keepRunning: false,
     reuseRunning: true,
+    setTradeModeAgentAuto: true,
+    printConversationLog: true,
   };
 
   for (let i = 2; i < argv.length; i += 1) {
@@ -51,6 +53,14 @@ function parseArgs(argv) {
     }
     if (arg === "--no-reuse-running") {
       opts.reuseRunning = false;
+      continue;
+    }
+    if (arg === "--no-agent-auto") {
+      opts.setTradeModeAgentAuto = false;
+      continue;
+    }
+    if (arg === "--no-log") {
+      opts.printConversationLog = false;
       continue;
     }
     if (!arg.startsWith("--")) continue;
@@ -170,6 +180,18 @@ async function probeExistingApi(apiBase) {
   }
 }
 
+async function configureTradeMode(apiBase, timeoutMs, mode) {
+  return fetchJson(
+    `${apiBase}/api/permissions/trade-mode`,
+    {
+      method: "PUT",
+      headers: buildHeaders(),
+      body: JSON.stringify({ mode }),
+    },
+    timeoutMs,
+  );
+}
+
 async function main() {
   const opts = parseArgs(process.argv);
 
@@ -223,6 +245,17 @@ async function main() {
       `[wallet-chat-drill] agentState=${String(selfStatus?.state ?? "unknown")} automationMode=${String(selfStatus?.automationMode ?? "unknown")}`,
     );
 
+    if (opts.setTradeModeAgentAuto) {
+      const tradeMode = await configureTradeMode(
+        opts.apiBase,
+        opts.timeoutMs,
+        "agent-auto",
+      );
+      console.log(
+        `[wallet-chat-drill] tradeMode=${String(tradeMode?.mode ?? "unknown")} canAgentAutoTrade=${String(tradeMode?.canAgentAutoTrade ?? "unknown")}`,
+      );
+    }
+
     const created = await fetchJson(
       `${opts.apiBase}/api/conversations`,
       {
@@ -249,6 +282,23 @@ async function main() {
         opts.timeoutMs,
       );
       console.log(`[assistant] ${String(reply?.text ?? "").trim()}`);
+    }
+
+    if (opts.printConversationLog) {
+      const transcript = await fetchJson(
+        `${opts.apiBase}/api/conversations/${conversationId}/messages`,
+        {
+          method: "GET",
+          headers: buildHeaders(),
+        },
+        opts.timeoutMs,
+      );
+      console.log("\n[conversation-log]");
+      for (const message of transcript?.messages ?? []) {
+        const role = String(message?.role ?? "unknown");
+        const text = String(message?.text ?? "").trim();
+        console.log(`[${role}] ${text}`);
+      }
     }
 
     if (opts.keepRunning) {

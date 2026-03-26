@@ -3279,7 +3279,8 @@ async function executeFallbackParsedActions(
       if (!valid) continue;
     }
 
-    await Promise.resolve(
+    let callbackSeen = false;
+    const actionResult = await Promise.resolve(
       action.handler(
         runtime,
         message,
@@ -3298,6 +3299,7 @@ async function executeFallbackParsedActions(
             contentRecord && typeof contentRecord === "object"
               ? extractCompatTextContent(contentRecord as Content)
               : "";
+          callbackSeen = true;
           onActionCallback(actionTag, Boolean(chunk));
           if (chunk) appendIncomingText(chunk);
           return [];
@@ -3305,6 +3307,16 @@ async function executeFallbackParsedActions(
         [],
       ),
     );
+    if (!callbackSeen) {
+      const fallbackText =
+        actionResult && typeof actionResult === "object"
+          ? extractCompatTextContent(actionResult as Content)
+          : "";
+      if (fallbackText) {
+        onActionCallback(parsed.name, true);
+        appendIncomingText(fallbackText);
+      }
+    }
   }
 }
 
@@ -3525,6 +3537,7 @@ async function generateChatResponse(
   const originalUserText = String(extractCompatTextContent(message.content) ?? "");
   type StreamSource = "unset" | "callback" | "onStreamChunk";
   let responseText = "";
+  let forcedWalletExecutionText = false;
   let activeStreamSource: StreamSource = "unset";
   const messageSource =
     typeof message.content.source === "string" &&
@@ -3591,54 +3604,91 @@ async function generateChatResponse(
     | undefined;
   let actionCallbacksSeen = 0;
   let _handlerError: unknown = null;
+  const directWalletExecutionFallback =
+    WALLET_EXECUTION_INTENT_RE.test(originalUserText)
+      ? inferWalletExecutionFallback(originalUserText)
+      : null;
   try {
-    const walletAugmentedMessage =
-      maybeAugmentChatMessageWithWalletContext(runtime, message);
-    const generationMessage = await maybeAugmentChatMessageWithKnowledge(
-      runtime,
-      walletAugmentedMessage,
-    );
-    result = await runtime.messageService?.handleMessage(
-      runtime,
-      generationMessage,
-      async (content: Content) => {
-        if (opts?.isAborted?.()) {
-          throw new Error("client_disconnected");
-        }
-
-        // Trace action callback invocations so we can verify handlers execute.
-        const actionTag = (content as Record<string, unknown>)?.action;
-        if (actionTag) {
+    if (directWalletExecutionFallback?.errorText) {
+      forcedWalletExecutionText = true;
+      responseText = directWalletExecutionFallback.errorText;
+      result = { responseContent: { text: directWalletExecutionFallback.errorText } };
+    } else if (directWalletExecutionFallback?.action) {
+      runtime.logger?.info(
+        {
+          src: "eliza-api",
+          action: directWalletExecutionFallback.action.name,
+          parameters: directWalletExecutionFallback.action.parameters,
+        },
+        "[eliza-api] Direct wallet execution dispatch from prompt intent",
+      );
+      await executeFallbackParsedActions(
+        runtime,
+        message,
+        [directWalletExecutionFallback.action],
+        appendIncomingText,
+        (actionTag, hasText) => {
           actionCallbacksSeen += 1;
           runtime.logger?.info(
             {
               src: "eliza-api",
               action: actionTag,
-              hasText: Boolean(extractCompatTextContent(content)),
+              hasText,
             },
             `[eliza-api] Action callback fired: ${actionTag}`,
           );
-        }
+        },
+      );
+      result = { responseContent: { text: responseText } };
+    } else {
+      const walletAugmentedMessage =
+        maybeAugmentChatMessageWithWalletContext(runtime, message);
+      const generationMessage = await maybeAugmentChatMessageWithKnowledge(
+        runtime,
+        walletAugmentedMessage,
+      );
+      result = await runtime.messageService?.handleMessage(
+        runtime,
+        generationMessage,
+        async (content: Content) => {
+          if (opts?.isAborted?.()) {
+            throw new Error("client_disconnected");
+          }
 
-        const chunk = extractCompatTextContent(content);
-        if (!chunk) return [];
-        if (!claimStreamSource("callback")) return [];
-        appendIncomingText(chunk);
-        return [];
-      },
-      {
-        onStreamChunk: opts?.onChunk
-          ? async (chunk: string) => {
-              if (opts?.isAborted?.()) {
-                throw new Error("client_disconnected");
+          // Trace action callback invocations so we can verify handlers execute.
+          const actionTag = (content as Record<string, unknown>)?.action;
+          if (actionTag) {
+            actionCallbacksSeen += 1;
+            runtime.logger?.info(
+              {
+                src: "eliza-api",
+                action: actionTag,
+                hasText: Boolean(extractCompatTextContent(content)),
+              },
+              `[eliza-api] Action callback fired: ${actionTag}`,
+            );
+          }
+
+          const chunk = extractCompatTextContent(content);
+          if (!chunk) return [];
+          if (!claimStreamSource("callback")) return [];
+          appendIncomingText(chunk);
+          return [];
+        },
+        {
+          onStreamChunk: opts?.onChunk
+            ? async (chunk: string) => {
+                if (opts?.isAborted?.()) {
+                  throw new Error("client_disconnected");
+                }
+                if (!chunk) return;
+                if (!claimStreamSource("onStreamChunk")) return;
+                appendIncomingText(chunk);
               }
-              if (!chunk) return;
-              if (!claimStreamSource("onStreamChunk")) return;
-              appendIncomingText(chunk);
-            }
-          : undefined,
-      },
-    );
+            : undefined,
+        },
+      );
+    }
 
     // Ensure MESSAGE_SENT hooks run for API chat flows. Some runtimes emit this
     // internally, but API wrappers can bypass those hooks.
@@ -3737,6 +3787,42 @@ async function generateChatResponse(
       );
     }
 
+    if (
+      actionCallbacksSeen === 0 &&
+      WALLET_EXECUTION_INTENT_RE.test(userText)
+    ) {
+      const inferredWalletFallback = inferWalletExecutionFallback(userText);
+      if (inferredWalletFallback?.action) {
+        const existingIndex = fallbackActionsToRun.findIndex(
+          (action) => action.name === inferredWalletFallback.action.name,
+        );
+        if (
+          existingIndex === -1 ||
+          !hasUsableWalletFallbackParams(fallbackActionsToRun[existingIndex]!)
+        ) {
+          if (existingIndex >= 0) {
+            fallbackActionsToRun.splice(existingIndex, 1);
+          }
+          fallbackActionsToRun.push(inferredWalletFallback.action);
+          runtime.logger?.warn(
+            {
+              src: "eliza-api",
+              action: inferredWalletFallback.action.name,
+              parameters: inferredWalletFallback.action.parameters,
+            },
+            "[eliza-api] Injecting wallet execution fallback from prompt intent",
+          );
+        }
+      } else if (inferredWalletFallback?.errorText) {
+        forcedWalletExecutionText = true;
+        if (opts?.onSnapshot) {
+          emitSnapshot(inferredWalletFallback.errorText);
+        } else {
+          responseText = inferredWalletFallback.errorText;
+        }
+      }
+    }
+
     if (actionCallbacksSeen === 0 && fallbackActionsToRun.length > 0) {
       runtime.logger?.warn(
         {
@@ -3783,7 +3869,12 @@ async function generateChatResponse(
   ) {
     // Keep streaming monotonic when final text extends emitted chunks.
     emitChunk(resultText.slice(responseText.length));
-  } else if (actionCallbacksSeen === 0 && resultText && resultText !== responseText) {
+  } else if (
+    actionCallbacksSeen === 0 &&
+    resultText &&
+    resultText !== responseText &&
+    !forcedWalletExecutionText
+  ) {
     // Canonical final response may differ from streamed chunks (normalization).
     if (opts?.onSnapshot) {
       emitSnapshot(resultText);
@@ -6033,6 +6124,174 @@ function isWalletActionRequiredIntent(prompt: string): boolean {
   );
 }
 
+const EVM_ADDRESS_CAPTURE_RE = /\b0x[a-fA-F0-9]{40}\b/g;
+const DECIMAL_AMOUNT_CAPTURE_RE = /\b(\d+(?:\.\d+)?)\b/;
+const SEND_NATIVE_ASSET_RE =
+  /\b(?:t?bnb|bnb|eth|usdt|usdc|busd|dai|weth|wbtc)\b/i;
+const SWAP_ROUTE_PROVIDER_RE = /\b(pancakeswap-v2|0x|auto)\b/i;
+
+type WalletIntentFallback =
+  | { action: FallbackParsedAction; errorText?: undefined }
+  | { action?: undefined; errorText: string };
+
+function normalizeWalletAssetSymbol(asset: string): string {
+  const normalized = asset.trim().toUpperCase();
+  if (normalized === "TBNB") return "BNB";
+  return normalized;
+}
+
+function resolveWalletDrillTokenAddress(): string | null {
+  const raw = process.env.WALLET_DRILL_TOKEN_ADDRESS?.trim();
+  return raw && /^0x[a-fA-F0-9]{40}$/.test(raw) ? raw : null;
+}
+
+function buildWalletParameterFailureReply(
+  actionName: "TRANSFER_TOKEN" | "EXECUTE_TRADE",
+  reason: string,
+): string {
+  const walletNetwork =
+    process.env.MILADY_WALLET_NETWORK?.trim().toLowerCase() === "testnet"
+      ? "BSC testnet"
+      : "BSC";
+  return [
+    `Action: ${actionName}`,
+    `Chain: ${walletNetwork}`,
+    "Executed: false",
+    `Reason: ${reason}`,
+  ].join("\n");
+}
+
+function inferTransferFallbackAction(prompt: string): WalletIntentFallback | null {
+  if (!/\b(send|transfer|pay)\b/i.test(prompt)) return null;
+
+  const recipient = prompt.match(EVM_ADDRESS_CAPTURE_RE)?.[0];
+  if (!recipient) {
+    return {
+      errorText: buildWalletParameterFailureReply(
+        "TRANSFER_TOKEN",
+        "I need a recipient EVM address to send funds.",
+      ),
+    };
+  }
+
+  const amount = prompt.match(DECIMAL_AMOUNT_CAPTURE_RE)?.[1];
+  if (!amount) {
+    return {
+      errorText: buildWalletParameterFailureReply(
+        "TRANSFER_TOKEN",
+        "I need a positive transfer amount.",
+      ),
+    };
+  }
+
+  const assetMatch = prompt.match(SEND_NATIVE_ASSET_RE)?.[0];
+  if (!assetMatch) {
+    return {
+      errorText: buildWalletParameterFailureReply(
+        "TRANSFER_TOKEN",
+        "I need an asset symbol such as BNB, USDT, or USDC.",
+      ),
+    };
+  }
+
+  return {
+    action: {
+      name: "TRANSFER_TOKEN",
+      parameters: {
+        toAddress: recipient,
+        amount,
+        assetSymbol: normalizeWalletAssetSymbol(assetMatch),
+      },
+    },
+  };
+}
+
+function inferTradeSide(prompt: string): "buy" | "sell" | null {
+  if (/\bsell\b/i.test(prompt)) return "sell";
+  if (/\b(buy|swap|trade)\b/i.test(prompt)) return "buy";
+  return null;
+}
+
+function inferTradeFallbackAction(prompt: string): WalletIntentFallback | null {
+  if (!/\b(swap|trade|buy|sell)\b/i.test(prompt)) return null;
+
+  const side = inferTradeSide(prompt);
+  if (!side) {
+    return {
+      errorText: buildWalletParameterFailureReply(
+        "EXECUTE_TRADE",
+        'I need a trade side ("buy" or "sell").',
+      ),
+    };
+  }
+
+  const amount = prompt.match(DECIMAL_AMOUNT_CAPTURE_RE)?.[1];
+  if (!amount) {
+    return {
+      errorText: buildWalletParameterFailureReply(
+        "EXECUTE_TRADE",
+        "I need a positive trade amount.",
+      ),
+    };
+  }
+
+  const addresses = prompt.match(EVM_ADDRESS_CAPTURE_RE) ?? [];
+  const tokenAddress = addresses[0] ?? resolveWalletDrillTokenAddress();
+  if (!tokenAddress) {
+    return {
+      errorText: buildWalletParameterFailureReply(
+        "EXECUTE_TRADE",
+        "I need a target token address. Set WALLET_DRILL_TOKEN_ADDRESS or include the token contract address in the prompt.",
+      ),
+    };
+  }
+
+  const routeProvider =
+    prompt.match(SWAP_ROUTE_PROVIDER_RE)?.[1]?.toLowerCase() ??
+    "pancakeswap-v2";
+
+  return {
+    action: {
+      name: "EXECUTE_TRADE",
+      parameters: {
+        side,
+        amount,
+        tokenAddress,
+        routeProvider,
+      },
+    },
+  };
+}
+
+function inferWalletExecutionFallback(prompt: string): WalletIntentFallback | null {
+  return inferTransferFallbackAction(prompt) ?? inferTradeFallbackAction(prompt);
+}
+
+function hasUsableWalletFallbackParams(action: FallbackParsedAction): boolean {
+  if (action.name === "TRANSFER_TOKEN") {
+    return (
+      typeof action.parameters.toAddress === "string" &&
+      /^0x[a-fA-F0-9]{40}$/.test(action.parameters.toAddress) &&
+      typeof action.parameters.amount === "string" &&
+      action.parameters.amount.trim().length > 0 &&
+      typeof action.parameters.assetSymbol === "string" &&
+      action.parameters.assetSymbol.trim().length > 0
+    );
+  }
+
+  if (action.name === "EXECUTE_TRADE") {
+    return (
+      (action.parameters.side === "buy" || action.parameters.side === "sell") &&
+      typeof action.parameters.amount === "string" &&
+      action.parameters.amount.trim().length > 0 &&
+      typeof action.parameters.tokenAddress === "string" &&
+      /^0x[a-fA-F0-9]{40}$/.test(action.parameters.tokenAddress)
+    );
+  }
+
+  return true;
+}
+
 function buildWalletActionNotExecutedReply(
   runtime: AgentRuntime,
   userPrompt: string,
@@ -6075,7 +6334,15 @@ function trimWalletProgressPrefix(text: string): string {
     return text.slice(balanceIdx).trimStart();
   }
 
-  const markers = ["Transfer", "Swap", "Trade", "Transaction hash:"];
+  const markers = [
+    "Action: TRANSFER_TOKEN",
+    "Action: EXECUTE_TRADE",
+    "Transfer",
+    "Swap",
+    "Trade",
+    "Tx hash:",
+    "Transaction hash:",
+  ];
   for (const marker of markers) {
     const idx = text.indexOf(marker);
     if (idx <= 0) continue;

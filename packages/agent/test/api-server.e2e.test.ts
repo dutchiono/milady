@@ -3117,6 +3117,203 @@ describe("API Server E2E (no runtime)", () => {
       }
     });
 
+    it("POST /api/chat executes TRANSFER_TOKEN fallback from a prose-only send prompt and returns the tx hash", async () => {
+      const previousKey = process.env.EVM_PRIVATE_KEY;
+      const previousRpc = process.env.BSC_TESTNET_RPC_URL;
+      process.env.EVM_PRIVATE_KEY =
+        "0x59c6995e998f97a5a0044976f4b8c0fcbf2d34f95f0f70f7f6f6e3d54d3f5f31";
+      process.env.BSC_TESTNET_RPC_URL = "https://example-rpc.invalid";
+      const handleMessage = vi.fn<
+        Parameters<
+          NonNullable<AgentRuntime["messageService"]>["handleMessage"]
+        >,
+        ReturnType<NonNullable<AgentRuntime["messageService"]>["handleMessage"]>
+      >(async () => ({
+        responseContent: { text: "I can handle that send for you." },
+      }));
+      const runtime = createRuntimeForChatSseTests({ handleMessage });
+      (runtime as unknown as { plugins: Array<{ name: string }> }).plugins = [
+        { name: "@elizaos/plugin-evm" },
+      ];
+      (runtime as unknown as { actions: unknown[] }).actions = [
+        {
+          name: "TRANSFER_TOKEN",
+          validate: async () => true,
+          handler: async (
+            _runtime: unknown,
+            _message: unknown,
+            _state: unknown,
+            options: { parameters?: Record<string, string> },
+            callback?: (content: Content) => void,
+          ) => {
+            expect(options.parameters?.toAddress).toBe(
+              "0x8DFBdEEC8c5d4970BB5F481C6ec7f73fa1C65be5",
+            );
+            expect(options.parameters?.amount).toBe("0.001");
+            expect(options.parameters?.assetSymbol).toBe("BNB");
+            callback?.({
+              text:
+                "Action: TRANSFER_TOKEN\nChain: BSC testnet\nAmount: 0.001 BNB\nRecipient: 0x8DFBdEEC8c5d4970BB5F481C6ec7f73fa1C65be5\nExecution mode: agent-auto\nExecuted: true\nTx hash: 0xsendhash\nExplorer: https://testnet.bscscan.com/tx/0xsendhash\nStatus: success",
+              action: "TRANSFER_TOKEN_SUCCESS",
+            } as Content);
+            return {
+              text:
+                "Action: TRANSFER_TOKEN\nChain: BSC testnet\nAmount: 0.001 BNB\nRecipient: 0x8DFBdEEC8c5d4970BB5F481C6ec7f73fa1C65be5\nExecution mode: agent-auto\nExecuted: true\nTx hash: 0xsendhash\nExplorer: https://testnet.bscscan.com/tx/0xsendhash\nStatus: success",
+              success: true,
+            };
+          },
+        },
+      ];
+      const server = await startApiServer({ port: 0, runtime });
+      try {
+        const { status, data } = await req(server.port, "POST", "/api/chat", {
+          text: "send 0.001 tBNB on BSC testnet to 0x8DFBdEEC8c5d4970BB5F481C6ec7f73fa1C65be5",
+          mode: "power",
+        });
+        expect(status).toBe(200);
+        expect(String(data.text)).toContain("Action: TRANSFER_TOKEN");
+        expect(String(data.text)).toContain("Tx hash: 0xsendhash");
+        expect(String(data.text)).not.toContain("no wallet action actually ran");
+      } finally {
+        await server.close();
+        if (previousKey === undefined) delete process.env.EVM_PRIVATE_KEY;
+        else process.env.EVM_PRIVATE_KEY = previousKey;
+        if (previousRpc === undefined) delete process.env.BSC_TESTNET_RPC_URL;
+        else process.env.BSC_TESTNET_RPC_URL = previousRpc;
+      }
+    });
+
+    it("POST /api/chat executes EXECUTE_TRADE fallback from a prose-only swap prompt and returns the tx hash", async () => {
+      const previousKey = process.env.EVM_PRIVATE_KEY;
+      const previousRpc = process.env.BSC_TESTNET_RPC_URL;
+      const previousToken = process.env.WALLET_DRILL_TOKEN_ADDRESS;
+      process.env.EVM_PRIVATE_KEY =
+        "0x59c6995e998f97a5a0044976f4b8c0fcbf2d34f95f0f70f7f6f6e3d54d3f5f31";
+      process.env.BSC_TESTNET_RPC_URL = "https://example-rpc.invalid";
+      process.env.WALLET_DRILL_TOKEN_ADDRESS =
+        "0x1111111111111111111111111111111111111111";
+      const handleMessage = vi.fn<
+        Parameters<
+          NonNullable<AgentRuntime["messageService"]>["handleMessage"]
+        >,
+        ReturnType<NonNullable<AgentRuntime["messageService"]>["handleMessage"]>
+      >(async () => ({
+        responseContent: { text: "I can make that swap." },
+      }));
+      const runtime = createRuntimeForChatSseTests({ handleMessage });
+      (runtime as unknown as { plugins: Array<{ name: string }> }).plugins = [
+        { name: "@elizaos/plugin-evm" },
+      ];
+      (runtime as unknown as { actions: unknown[] }).actions = [
+        {
+          name: "EXECUTE_TRADE",
+          validate: async () => true,
+          handler: async (
+            _runtime: unknown,
+            _message: unknown,
+            _state: unknown,
+            options: { parameters?: Record<string, string> },
+            callback?: (content: Content) => void,
+          ) => {
+            expect(options.parameters?.side).toBe("buy");
+            expect(options.parameters?.amount).toBe("0.001");
+            expect(options.parameters?.tokenAddress).toBe(
+              "0x1111111111111111111111111111111111111111",
+            );
+            expect(options.parameters?.routeProvider).toBe("pancakeswap-v2");
+            callback?.({
+              text:
+                "Action: EXECUTE_TRADE\nChain: BSC testnet\nSide: buy\nAmount: 0.001 BNB\nToken: 0x1111111111111111111111111111111111111111\nRoute provider: pancakeswap-v2\nExecution mode: agent-auto\nExecuted: true\nTx hash: 0xswaphash\nExplorer: https://testnet.bscscan.com/tx/0xswaphash\nStatus: success",
+              action: "EXECUTE_TRADE_SUCCESS",
+            } as Content);
+            return {
+              text:
+                "Action: EXECUTE_TRADE\nChain: BSC testnet\nSide: buy\nAmount: 0.001 BNB\nToken: 0x1111111111111111111111111111111111111111\nRoute provider: pancakeswap-v2\nExecution mode: agent-auto\nExecuted: true\nTx hash: 0xswaphash\nExplorer: https://testnet.bscscan.com/tx/0xswaphash\nStatus: success",
+              success: true,
+            };
+          },
+        },
+      ];
+      const server = await startApiServer({ port: 0, runtime });
+      try {
+        const { status, data } = await req(server.port, "POST", "/api/chat", {
+          text: "swap 0.001 tBNB to the configured token on BSC testnet using pancakeswap-v2",
+          mode: "power",
+        });
+        expect(status).toBe(200);
+        expect(String(data.text)).toContain("Action: EXECUTE_TRADE");
+        expect(String(data.text)).toContain("Route provider: pancakeswap-v2");
+        expect(String(data.text)).toContain("Tx hash: 0xswaphash");
+      } finally {
+        await server.close();
+        if (previousKey === undefined) {
+          delete process.env.EVM_PRIVATE_KEY;
+        } else {
+          process.env.EVM_PRIVATE_KEY = previousKey;
+        }
+        if (previousRpc === undefined) {
+          delete process.env.BSC_TESTNET_RPC_URL;
+        } else {
+          process.env.BSC_TESTNET_RPC_URL = previousRpc;
+        }
+        if (previousToken === undefined) {
+          delete process.env.WALLET_DRILL_TOKEN_ADDRESS;
+        } else {
+          process.env.WALLET_DRILL_TOKEN_ADDRESS = previousToken;
+        }
+      }
+    });
+
+    it("POST /api/chat returns an explicit swap parameter failure when no token address is available", async () => {
+      const previousKey = process.env.EVM_PRIVATE_KEY;
+      const previousRpc = process.env.BSC_TESTNET_RPC_URL;
+      const previousToken = process.env.WALLET_DRILL_TOKEN_ADDRESS;
+      process.env.EVM_PRIVATE_KEY =
+        "0x59c6995e998f97a5a0044976f4b8c0fcbf2d34f95f0f70f7f6f6e3d54d3f5f31";
+      process.env.BSC_TESTNET_RPC_URL = "https://example-rpc.invalid";
+      delete process.env.WALLET_DRILL_TOKEN_ADDRESS;
+      const handleMessage = vi.fn<
+        Parameters<
+          NonNullable<AgentRuntime["messageService"]>["handleMessage"]
+        >,
+        ReturnType<NonNullable<AgentRuntime["messageService"]>["handleMessage"]>
+      >(async () => ({
+        responseContent: { text: "I can make that swap." },
+      }));
+      const runtime = createRuntimeForChatSseTests({ handleMessage });
+      (runtime as unknown as { plugins: Array<{ name: string }> }).plugins = [
+        { name: "@elizaos/plugin-evm" },
+      ];
+      const server = await startApiServer({ port: 0, runtime });
+      try {
+        const { status, data } = await req(server.port, "POST", "/api/chat", {
+          text: "swap 0.001 tBNB on BSC testnet using pancakeswap-v2",
+          mode: "power",
+        });
+        expect(status).toBe(200);
+        expect(String(data.text)).toContain("Action: EXECUTE_TRADE");
+        expect(String(data.text)).toContain("Executed: false");
+        expect(String(data.text)).toContain("I need a target token address");
+      } finally {
+        await server.close();
+        if (previousKey === undefined) {
+          delete process.env.EVM_PRIVATE_KEY;
+        } else {
+          process.env.EVM_PRIVATE_KEY = previousKey;
+        }
+        if (previousRpc === undefined) {
+          delete process.env.BSC_TESTNET_RPC_URL;
+        } else {
+          process.env.BSC_TESTNET_RPC_URL = previousRpc;
+        }
+        if (previousToken === undefined) {
+          delete process.env.WALLET_DRILL_TOKEN_ADDRESS;
+        } else {
+          process.env.WALLET_DRILL_TOKEN_ADDRESS = previousToken;
+        }
+      }
+    });
+
     it("POST /api/conversations/:id/messages/stream emits deterministic wallet status for address prompts", async () => {
       const prevKey = process.env.EVM_PRIVATE_KEY;
       const testKey =
