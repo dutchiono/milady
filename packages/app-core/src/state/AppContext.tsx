@@ -115,6 +115,7 @@ import {
   tabFromPath,
 } from "../navigation";
 import { getResetConnectionWizardToHostingStepPatch } from "../onboarding/connection-flow";
+import { restartAgentAfterOnboarding } from "./onboarding-restart";
 import {
   canRevertOnboardingTo,
   getFlaminaTopicForOnboardingStep,
@@ -5224,77 +5225,72 @@ function AppProviderInner({
     if (!onboardingOptions) return;
     if (onboardingFinishSavingRef.current || onboardingRestarting) return;
 
-    // Cloud fast-track: if we got here from the 3-step onboarding,
-    // submit with cloud defaults directly.
-    if (elizaCloudConnected) {
-      const style =
-        onboardingOptions?.styles?.[0] ?? getDefaultStylePreset(uiLanguage);
-      const defaultName = style?.name ?? getDefaultStylePreset(uiLanguage).name;
-
-      try {
-        await client.submitOnboarding({
-          name: onboardingName || defaultName,
-          bio: style?.bio ?? ["An autonomous AI agent."],
-          systemPrompt:
-            style?.system?.replace(
-              /\{\{name\}\}/g,
-              onboardingName || defaultName,
-            ) ??
-            `You are ${onboardingName || defaultName}, an autonomous AI agent powered by elizaOS.`,
-          style: style?.style,
-          adjectives: style?.adjectives,
-          postExamples: style?.postExamples,
-          messageExamples: style?.messageExamples,
-          topics: style?.topics,
-          avatarIndex: style?.avatarIndex ?? 1,
-          language: uiLanguage,
-          presetId: style?.id ?? "chen",
-          // Cloud onboarding: the API key was already persisted server-side
-          // by handleCloudLogin → persistCloudLoginStatus. We just need to
-          // tell the backend to enable cloud mode with default models.
-          runMode: "cloud",
-          cloudProvider: "elizacloud",
-          smallModel: "moonshotai/kimi-k2-turbo",
-          largeModel: "moonshotai/kimi-k2-0905",
-        } as unknown as Parameters<typeof client.submitOnboarding>[0]);
-
-        try {
-          setAgentStatus(await client.restartAgent());
-        } catch {
-          /* ignore */
-        }
-
-        await bootstrapConversationAfterAgentReady(
-          "onboarding:cloud_fast_track",
-          {
-            showOverlay: true,
-          },
-        );
-
-        clearPersistedOnboardingStep();
-        onboardingResumeConnectionRef.current = null;
-        onboardingCompletionCommittedRef.current = true;
-        initialTabSetRef.current = true;
-        setOnboardingComplete(true);
-        setTab("companion");
-        return;
-      } catch (err) {
-        console.error("[onboarding] Cloud fast-track failed:", err);
-        // Fall through to existing logic as fallback
-      }
-    }
-
-    const style = onboardingOptions.styles.find(
-      (s: StylePreset) => s.id === onboardingStyle,
-    );
-    const systemPrompt = style?.system
-      ? style.system.replace(/\{\{name\}\}/g, onboardingName)
-      : `You are ${onboardingName}, an autonomous AI agent powered by elizaOS. ${onboardingOptions.sharedStyleRules}`;
     onboardingFinishBusyRef.current = true;
     setOnboardingRestarting(true);
     onboardingFinishSavingRef.current = true;
 
     try {
+      // Cloud fast-track: if we got here from the 3-step onboarding,
+      // submit with cloud defaults directly.
+      if (elizaCloudConnected) {
+        const style =
+          onboardingOptions?.styles?.[0] ?? getDefaultStylePreset(uiLanguage);
+        const defaultName =
+          style?.name ?? getDefaultStylePreset(uiLanguage).name;
+
+        try {
+          await client.submitOnboarding({
+            name: onboardingName || defaultName,
+            bio: style?.bio ?? ["An autonomous AI agent."],
+            systemPrompt:
+              style?.system?.replace(
+                /\{\{name\}\}/g,
+                onboardingName || defaultName,
+              ) ??
+              `You are ${onboardingName || defaultName}, an autonomous AI agent powered by elizaOS.`,
+            style: style?.style,
+            adjectives: style?.adjectives,
+            postExamples: style?.postExamples,
+            messageExamples: style?.messageExamples,
+            topics: style?.topics,
+            avatarIndex: style?.avatarIndex ?? 1,
+            language: uiLanguage,
+            presetId: style?.id ?? "chen",
+            runMode: "cloud",
+            cloudProvider: "elizacloud",
+            smallModel: "moonshotai/kimi-k2-turbo",
+            largeModel: "moonshotai/kimi-k2-0905",
+          } as unknown as Parameters<typeof client.submitOnboarding>[0]);
+
+          setAgentStatus(await restartAgentAfterOnboarding(client));
+
+          await bootstrapConversationAfterAgentReady(
+            "onboarding:cloud_fast_track",
+            {
+              showOverlay: true,
+            },
+          );
+
+          clearPersistedOnboardingStep();
+          onboardingResumeConnectionRef.current = null;
+          onboardingCompletionCommittedRef.current = true;
+          initialTabSetRef.current = true;
+          setOnboardingComplete(true);
+          setTab("companion");
+          return;
+        } catch (err) {
+          console.error("[onboarding] Cloud fast-track failed:", err);
+          // Fall through to existing logic as fallback
+        }
+      }
+
+      const style = onboardingOptions.styles.find(
+        (s: StylePreset) => s.id === onboardingStyle,
+      );
+      const systemPrompt = style?.system
+        ? style.system.replace(/\{\{name\}\}/g, onboardingName)
+        : `You are ${onboardingName}, an autonomous AI agent powered by elizaOS. ${onboardingOptions.sharedStyleRules}`;
+
       let connection =
         buildOnboardingConnectionConfig({
           onboardingRunMode,
@@ -5490,11 +5486,7 @@ function AppProviderInner({
       // before we abruptly restart the agent process.
       await new Promise((r) => setTimeout(r, 1000));
 
-      try {
-        setAgentStatus(await client.restartAgent());
-      } catch {
-        /* ignore */
-      }
+      setAgentStatus(await restartAgentAfterOnboarding(client));
       await bootstrapConversationAfterAgentReady("onboarding:full_finish", {
         showOverlay: true,
       });
