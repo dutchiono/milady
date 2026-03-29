@@ -34,12 +34,14 @@ concurrency:
 
 env:
   CI: "true"
+  # Runner selection: set RUNNER_UBUNTU to "ubuntu-latest" on forks or during
+  # Blacksmith outages.
 
 jobs:
   # ── Prepare version info ───────────────────────────────────────────────
   prepare:
     name: Prepare
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ${{ vars.RUNNER_UBUNTU || 'blacksmith-4vcpu-ubuntu-2404' }}
     outputs:
       version: ${{ steps.ver.outputs.version }}
       npm_version: ${{ steps.ver.outputs.npm_version }}
@@ -87,7 +89,7 @@ jobs:
     if: |
       (github.event_name == 'release') ||
       (github.event_name == 'workflow_dispatch' && inputs.pypi)
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ${{ vars.RUNNER_UBUNTU || 'blacksmith-4vcpu-ubuntu-2404' }}
     permissions:
       id-token: write  # OIDC trusted publishing
     environment:
@@ -156,7 +158,7 @@ jobs:
     if: |
       (github.event_name == 'release') ||
       (github.event_name == 'workflow_dispatch' && inputs.snap)
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ${{ vars.RUNNER_UBUNTU || 'blacksmith-4vcpu-ubuntu-2404' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -194,7 +196,7 @@ jobs:
     if: |
       (github.event_name == 'release') ||
       (github.event_name == 'workflow_dispatch' && inputs.apt)
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ${{ vars.RUNNER_UBUNTU || 'blacksmith-4vcpu-ubuntu-2404' }}
     permissions:
       contents: write  # gh release upload
     steps:
@@ -275,6 +277,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.APT_REPO_TOKEN }}
         run: |
+          TARGET_APT_REPO="${{ vars.APT_DISPATCH_REPO }}"
+          if [[ -z "$TARGET_APT_REPO" ]]; then
+            if [[ "${{ github.repository_owner }}" == "milady-ai" ]]; then
+              TARGET_APT_REPO="milady-ai/apt"
+            else
+              echo "No APT_DISPATCH_REPO configured for ${GITHUB_REPOSITORY} — skipping APT dispatch"
+              exit 0
+            fi
+          fi
+
           VERSION="${{ needs.prepare.outputs.version }}"
           DEB_VERSION="${{ needs.prepare.outputs.deb_version }}"
 
@@ -288,10 +300,10 @@ jobs:
             TAG="v${VERSION}"
           fi
 
-          DEB_URL="https://github.com/milady-ai/milady/releases/download/${TAG}/${DEB_BASENAME}"
+          DEB_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${DEB_BASENAME}"
 
-          echo "Dispatching APT update: version=$VERSION, deb_url=$DEB_URL"
-          gh api repos/milady-ai/apt/dispatches \
+          echo "Dispatching APT update to ${TARGET_APT_REPO}: version=$VERSION, deb_url=$DEB_URL"
+          gh api repos/${TARGET_APT_REPO}/dispatches \
             --method POST \
             -f event_type=update-apt \
             -f "client_payload[version]=$VERSION" \
@@ -304,7 +316,7 @@ jobs:
     if: |
       (github.event_name == 'release' && needs.prepare.outputs.is_prerelease == 'false') ||
       (github.event_name == 'workflow_dispatch' && inputs.flatpak)
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ${{ vars.RUNNER_UBUNTU || 'blacksmith-4vcpu-ubuntu-2404' }}
     permissions:
       contents: write  # gh release upload
     steps:
@@ -351,7 +363,7 @@ jobs:
     name: Publish Summary
     needs: [prepare, publish-pypi, publish-snap, build-deb, build-flatpak]
     if: always()
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ${{ vars.RUNNER_UBUNTU || 'blacksmith-4vcpu-ubuntu-2404' }}
     steps:
       - name: Summary
         run: |

@@ -38,7 +38,7 @@ env:
 jobs:
   prepare:
     name: Prepare
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ${{ vars.RUNNER_UBUNTU || 'blacksmith-4vcpu-ubuntu-2404' }}
     outputs:
       version: ${{ steps.ver.outputs.version }}
       build_number: ${{ steps.ver.outputs.build_number }}
@@ -366,7 +366,7 @@ jobs:
     name: Release Summary
     needs: [prepare, build-ios, build-macos]
     if: always()
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ${{ vars.RUNNER_UBUNTU || 'blacksmith-4vcpu-ubuntu-2404' }}
     steps:
       - name: Summary
         run: |

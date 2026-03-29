@@ -26,7 +26,7 @@ concurrency:
 jobs:
   update-tap:
     name: Trigger Homebrew tap update
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ${{ vars.RUNNER_UBUNTU || 'blacksmith-4vcpu-ubuntu-2404' }}
     steps:
       - name: Determine version
         id: meta
@@ -41,9 +41,14 @@ jobs:
           echo "Triggering Homebrew update for version: $VERSION"
 
       - name: Dispatch to homebrew-tap
+        if: ${{ github.repository_owner == 'milady-ai' || vars.HOMEBREW_TAP_REPO != '' }}
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          repository: milady-ai/homebrew-tap
+          repository: ${{ vars.HOMEBREW_TAP_REPO || 'milady-ai/homebrew-tap' }}
           event-type: update-homebrew
           client-payload: '{"version": "${{ steps.meta.outputs.version }}"}'
+
+      - name: Skip Homebrew tap dispatch on unconfigured forks
+        if: ${{ github.repository_owner != 'milady-ai' && vars.HOMEBREW_TAP_REPO == '' }}
+        run: echo "No HOMEBREW_TAP_REPO configured for ${GITHUB_REPOSITORY} — skipping Homebrew tap dispatch"

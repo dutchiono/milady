@@ -8,10 +8,15 @@ permissions:
   contents: read
   issues: write
 
+env:
+  # Runner selection: set RUNNER_UBUNTU to "ubuntu-latest" on forks or during
+  # Blacksmith outages.
+  RUNNER_UBUNTU: ${{ vars.RUNNER_UBUNTU || 'blacksmith-4vcpu-ubuntu-2404' }}
+
 jobs:
   orchestrate:
     name: Create Release Status Tracker
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ${{ vars.RUNNER_UBUNTU || 'blacksmith-4vcpu-ubuntu-2404' }}
     steps:
       - name: Checkout .github directory
         uses: actions/checkout@v4
@@ -43,19 +48,25 @@ jobs:
           script: |
             const actor = context.actor;
 
+            if (actor === context.repo.owner) {
+              core.info(`${actor} owns ${context.repo.owner}/${context.repo.repo} — trust gate passed`);
+              core.setOutput('allowed', 'true');
+              return;
+            }
+
             // Check org membership first
             try {
               const membership = await github.rest.orgs.checkMembershipForUser({
-                org: 'milady-ai',
+                org: context.repo.owner,
                 username: actor,
               });
               if (membership.status === 204 || membership.status === 302) {
-                core.info(`${actor} is a milady-ai org member — trust gate passed`);
+                core.info(`${actor} is a ${context.repo.owner} org member — trust gate passed`);
                 core.setOutput('allowed', 'true');
                 return;
               }
             } catch (e) {
-              core.info(`${actor} is not a milady-ai org member (${e.status}) — checking trust score`);
+              core.info(`${actor} is not a ${context.repo.owner} org member (${e.status}) — checking trust score`);
             }
 
             // Fall back to trust scoring

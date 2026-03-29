@@ -111,9 +111,14 @@ jobs:
             const { computeTrustScore, DEFAULT_CONFIG, expandState } = require('./.github/trust-scoring.cjs');
 
             let isOrgMember = false;
+            if (actor === context.repo.owner) {
+              isOrgMember = true;
+            }
             try {
-              const { status } = await github.rest.orgs.checkMembershipForUser({ org: context.repo.owner, username: actor });
-              isOrgMember = status === 204 || status === 302;
+              if (!isOrgMember) {
+                const { status } = await github.rest.orgs.checkMembershipForUser({ org: context.repo.owner, username: actor });
+                isOrgMember = status === 204 || status === 302;
+              }
             } catch (e) {}
 
             let allowed = isOrgMember;
