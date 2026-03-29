@@ -74,7 +74,7 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: milady-ai/agent
+  IMAGE_NAME: ${{ vars.GHCR_AGENT_IMAGE || format('{0}/agent', github.repository_owner) }}
 
 permissions:
   contents: read
@@ -83,7 +83,7 @@ permissions:
 jobs:
   build:
     name: Build agent image
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ${{ vars.RUNNER_UBUNTU || 'blacksmith-4vcpu-ubuntu-2404' }}
     timeout-minutes: 90
 
     steps:
