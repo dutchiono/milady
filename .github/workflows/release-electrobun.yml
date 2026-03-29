@@ -199,7 +199,7 @@ jobs:
             artifact-name: macos-x64
           - name: Windows
             os: windows
-            runner: blacksmith-4vcpu-windows-2025
+            runner: ${{ vars.RUNNER_WINDOWS || 'blacksmith-4vcpu-windows-2025' }}
             artifact-name: windows-x64
           - name: Linux
             os: linux
