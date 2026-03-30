@@ -158,9 +158,8 @@ test.skipJsErrors()(
 
     await t
       .expect(
-        vrmAfter
-          .find('button[aria-pressed="true"]')
-          .withExactText("Low res").exists,
+        vrmAfter.find('button[aria-pressed="true"]').withExactText("Low res")
+          .exists,
       )
       .ok("VRM power should stay on Low res after navigation");
 
