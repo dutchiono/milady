@@ -597,13 +597,19 @@ jobs:
             let verdict = 'reject';
             let decision = 'REQUEST CHANGES';
             let decisionCommentUrl = '';
+            const isForkRepo = context.repo.owner !== 'milady-ai';
 
             if (latest) {
               const normalized = extractDecision(latest.body);
               decision = normalized || decision;
               decisionCommentUrl = latest.html_url || '';
 
-              if (normalized === 'APPROVE') {
+              const reviewUnavailable = /automated review unavailable/i.test(latest.body || '');
+
+              if (reviewUnavailable && isForkRepo) {
+                verdict = 'skip';
+                decision = 'REVIEW UNAVAILABLE';
+              } else if (normalized === 'APPROVE') {
                 verdict = 'approve';
               } else if (normalized === 'CLOSE') {
                 verdict = 'close';
@@ -662,12 +668,14 @@ jobs:
               approve: 'success',
               reject: 'failure',
               close: 'action_required',
+              skip: 'success',
             };
 
             const titleMap = {
               approve: '✅ APPROVED — ready to merge',
               reject: '🔄 REQUEST CHANGES — issues found',
               close: '🚫 CLOSE — out of scope',
+              skip: 'REVIEW UNAVAILABLE - non-blocking on fork',
             };
 
             const summaryLines = [
@@ -725,6 +733,11 @@ jobs:
             const verdict = '${{ needs.review-pr.outputs.verdict }}';
             const category = '${{ needs.classify.outputs.category }}';
             const prNumber = context.payload.pull_request.number;
+
+            if (verdict === 'skip') {
+              console.log('Skipping trust/category update because automated review was unavailable on fork.');
+              return;
+            }
 
             const verdictToType = { approve: 'approve', reject: 'reject', close: 'close' };
             const eventType = verdictToType[verdict] || 'reject';
@@ -1209,3 +1222,4 @@ jobs:
             5. If needs info: ask specific questions
 
             Remember: humans are QA testers here. Their bug reports are valuable. Their feature requests for visual changes are not. Be respectful but firm about scope.
+
