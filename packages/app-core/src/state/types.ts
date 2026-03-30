@@ -65,8 +65,12 @@ import type { UiShellMode, UiTheme } from "./ui-preferences";
 
 export type { UiShellMode } from "./ui-preferences";
 
-/** 3D companion render power: full quality, OS/battery-aware default, or always efficient. */
-export type CompanionVrmPowerMode = "quality" | "balanced" | "efficiency";
+/** 3D companion render power: full quality, OS/battery-aware default, efficient, or low-res avatar-only. */
+export type CompanionVrmPowerMode =
+  | "quality"
+  | "balanced"
+  | "efficiency"
+  | "low_res";
 
 /** When to cap the companion VRM loop at ~half the display refresh rate. */
 export type CompanionHalfFramerateMode = "off" | "when_saving_power" | "always";
@@ -284,6 +288,8 @@ export interface AppState {
   ownerName: string | null;
   /** VRM quality vs GPU use: always full quality, battery-aware (default), or always efficient. */
   companionVrmPowerMode: CompanionVrmPowerMode;
+  /** When true, do not mount live 3D companion surfaces and show static preview imagery instead. */
+  companion3dOff: boolean;
   /**
    * When true and the document is hidden, keep the VRM render loop alive and
    * hide only the splat world + Spark backdrop (lower GPU than full scene).
@@ -639,6 +645,7 @@ export interface AppActions {
   setUiLanguage: (language: UiLanguage) => void;
   setUiTheme: (theme: UiTheme) => void;
   setCompanionVrmPowerMode: (mode: CompanionVrmPowerMode) => void;
+  setCompanion3dOff: (enabled: boolean) => void;
   setCompanionAnimateWhenHidden: (enabled: boolean) => void;
   setCompanionHalfFramerateMode: (mode: CompanionHalfFramerateMode) => void;
 

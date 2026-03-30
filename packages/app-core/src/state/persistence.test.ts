@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyUiTheme,
   clearPersistedOnboardingStep,
+  loadCompanion3dOff,
   loadCompanionAnimateWhenHidden,
   loadCompanionHalfFramerateMode,
   loadCompanionMessageCutoffTs,
@@ -17,8 +18,10 @@ import {
   loadLastNativeTab,
   loadPersistedOnboardingStep,
   loadUiTheme,
+  normalizeCompanion3dOff,
   normalizeCompanionHalfFramerateMode,
   normalizeCompanionVrmPowerMode,
+  saveCompanion3dOff,
   saveCompanionAnimateWhenHidden,
   saveCompanionHalfFramerateMode,
   saveCompanionVrmPowerMode,
@@ -227,12 +230,14 @@ describe("companion VRM power mode persistence", () => {
     });
   });
 
-  it("round-trips quality, balanced, and efficiency", () => {
+  it("round-trips quality, balanced, efficiency, and low_res", () => {
     withLocalStorageStub(() => {
       saveCompanionVrmPowerMode("quality");
       expect(loadCompanionVrmPowerMode()).toBe("quality");
       saveCompanionVrmPowerMode("efficiency");
       expect(loadCompanionVrmPowerMode()).toBe("efficiency");
+      saveCompanionVrmPowerMode("low_res");
+      expect(loadCompanionVrmPowerMode()).toBe("low_res");
       saveCompanionVrmPowerMode("balanced");
       expect(loadCompanionVrmPowerMode()).toBe("balanced");
     });
@@ -263,6 +268,32 @@ describe("companion VRM power mode persistence", () => {
   it("normalizeCompanionVrmPowerMode coerces unknown to balanced", () => {
     expect(normalizeCompanionVrmPowerMode("nope")).toBe("balanced");
     expect(normalizeCompanionVrmPowerMode("quality")).toBe("quality");
+    expect(normalizeCompanionVrmPowerMode("low_res")).toBe("low_res");
+  });
+});
+
+describe("companion 3d off persistence", () => {
+  it("defaults to false when unset", () => {
+    withLocalStorageStub(() => {
+      expect(loadCompanion3dOff()).toBe(false);
+    });
+  });
+
+  it("round-trips true and false", () => {
+    withLocalStorageStub(() => {
+      saveCompanion3dOff(true);
+      expect(loadCompanion3dOff()).toBe(true);
+      expect(localStorage.getItem("eliza:companion-3d-off")).toBe("1");
+      saveCompanion3dOff(false);
+      expect(loadCompanion3dOff()).toBe(false);
+      expect(localStorage.getItem("eliza:companion-3d-off")).toBe("0");
+    });
+  });
+
+  it("normalizeCompanion3dOff accepts only persisted truthy values", () => {
+    expect(normalizeCompanion3dOff("1")).toBe(true);
+    expect(normalizeCompanion3dOff(true)).toBe(true);
+    expect(normalizeCompanion3dOff("0")).toBe(false);
   });
 });
 

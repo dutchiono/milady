@@ -23,6 +23,7 @@ export function ChatAvatar(_props: ChatAvatarProps) {
     selectedVrmIndex,
     customVrmUrl,
     companionVrmPowerMode,
+    companion3dOff,
     companionHalfFramerateMode,
     companionAnimateWhenHidden,
   } = useApp();
@@ -42,7 +43,7 @@ export function ChatAvatar(_props: ChatAvatarProps) {
   const [vrmLoaded, setVrmLoaded] = useState(false);
   const [showFallback, setShowFallback] = useState(false);
 
-  const avatarVisible = engineReady || vrmLoaded || showFallback;
+  const avatarVisible = companion3dOff || engineReady || vrmLoaded || showFallback;
 
   const handleEngineReady = useCallback((engine: VrmEngine) => {
     vrmEngineRef.current = engine;
@@ -111,26 +112,28 @@ export function ChatAvatar(_props: ChatAvatarProps) {
           <div
             className="absolute inset-0"
             style={{
-              opacity: vrmLoaded ? 1 : 0,
+              opacity: vrmLoaded && !companion3dOff ? 1 : 0,
               transition: "opacity 0.45s ease",
               // Keep a stable full-body framing in the narrow chat sidebar.
               transform: "scale(1.02) translateY(1%)",
               transformOrigin: "50% 42%",
             }}
           >
-            <VrmViewer
-              vrmPath={vrmPath}
-              interactive
-              interactiveMode="orbitZoom"
-              companionVrmPowerMode={companionVrmPowerMode}
-              companionHalfFramerateMode={companionHalfFramerateMode}
-              companionAnimateWhenHidden={companionAnimateWhenHidden}
-              onEngineReady={handleEngineReady}
-              onEngineState={handleEngineState}
-            />
+            {!companion3dOff && (
+              <VrmViewer
+                vrmPath={vrmPath}
+                interactive
+                interactiveMode="orbitZoom"
+                companionVrmPowerMode={companionVrmPowerMode}
+                companionHalfFramerateMode={companionHalfFramerateMode}
+                companionAnimateWhenHidden={companionAnimateWhenHidden}
+                onEngineReady={handleEngineReady}
+                onEngineState={handleEngineState}
+              />
+            )}
           </div>
 
-          {showFallback && !vrmLoaded && (
+          {(companion3dOff || (showFallback && !vrmLoaded)) && (
             <img
               src={fallbackPreviewUrl}
               alt="avatar preview"
@@ -138,7 +141,7 @@ export function ChatAvatar(_props: ChatAvatarProps) {
             />
           )}
 
-          {!vrmLoaded && !showFallback && <AvatarLoader />}
+          {!companion3dOff && !vrmLoaded && !showFallback && <AvatarLoader />}
         </div>
       </div>
     </div>

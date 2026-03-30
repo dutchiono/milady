@@ -107,6 +107,7 @@ describe("OnboardingWizard", () => {
       t: (key: string) => key,
       onboardingUiRevealNonce: 0,
       companionVrmPowerMode: "balanced",
+      companion3dOff: false,
       companionHalfFramerateMode: "when_saving_power",
       companionAnimateWhenHidden: false,
     });
@@ -135,6 +136,7 @@ describe("OnboardingWizard", () => {
       t: (key: string) => key,
       onboardingUiRevealNonce: 0,
       companionVrmPowerMode: "balanced",
+      companion3dOff: false,
       companionHalfFramerateMode: "when_saving_power",
       companionAnimateWhenHidden: false,
     });
@@ -153,6 +155,58 @@ describe("OnboardingWizard", () => {
     });
   });
 
+  it("omits the world scene in low_res mode", async () => {
+    mockUseApp.mockReturnValue({
+      onboardingStep: "hosting",
+      selectedVrmIndex: 1,
+      customVrmUrl: "",
+      uiLanguage: "en",
+      uiTheme: "light",
+      setState: vi.fn(),
+      t: (key: string) => key,
+      onboardingUiRevealNonce: 0,
+      companionVrmPowerMode: "low_res",
+      companion3dOff: false,
+      companionHalfFramerateMode: "when_saving_power",
+      companionAnimateWhenHidden: false,
+    });
+
+    await act(async () => {
+      TestRenderer.create(<OnboardingWizard />);
+    });
+
+    expect(mockVrmStage.mock.calls[0]?.[0]).toMatchObject({
+      worldUrl: undefined,
+    });
+  });
+
+  it("shows the static preview instead of mounting VrmStage when 3d is off", async () => {
+    mockUseApp.mockReturnValue({
+      onboardingStep: "hosting",
+      selectedVrmIndex: 1,
+      customVrmUrl: "",
+      uiLanguage: "en",
+      uiTheme: "light",
+      setState: vi.fn(),
+      t: (key: string) => key,
+      onboardingUiRevealNonce: 0,
+      companionVrmPowerMode: "balanced",
+      companion3dOff: true,
+      companionHalfFramerateMode: "when_saving_power",
+      companionAnimateWhenHidden: false,
+    });
+
+    let tree: ReactTestRenderer | undefined;
+    await act(async () => {
+      tree = TestRenderer.create(<OnboardingWizard />);
+    });
+
+    expect(mockVrmStage).not.toHaveBeenCalled();
+    const previewImages = tree?.root.findAllByType("img") ?? [];
+    expect(previewImages).toHaveLength(1);
+    expect(previewImages[0]?.props.src).toBe("/vrms/previews/eliza-1.png");
+  });
+
   it("does not render the legacy corner decoration svgs", async () => {
     mockUseApp.mockReturnValue({
       onboardingStep: "hosting",
@@ -164,6 +218,7 @@ describe("OnboardingWizard", () => {
       t: (key: string) => key,
       onboardingUiRevealNonce: 0,
       companionVrmPowerMode: "balanced",
+      companion3dOff: false,
       companionHalfFramerateMode: "when_saving_power",
       companionAnimateWhenHidden: false,
     });
@@ -188,6 +243,7 @@ describe("OnboardingWizard", () => {
       t: (key: string) => key,
       onboardingUiRevealNonce: 0,
       companionVrmPowerMode: "balanced",
+      companion3dOff: false,
       companionHalfFramerateMode: "when_saving_power",
       companionAnimateWhenHidden: false,
     });
@@ -219,6 +275,7 @@ describe("OnboardingWizard", () => {
       t: (key: string) => key,
       onboardingUiRevealNonce: 0,
       companionVrmPowerMode: "balanced",
+      companion3dOff: false,
       companionHalfFramerateMode: "when_saving_power",
       companionAnimateWhenHidden: false,
     });
@@ -269,6 +326,7 @@ describe("OnboardingWizard", () => {
         t: (key: string) => key,
         onboardingUiRevealNonce: 0,
         companionVrmPowerMode: "balanced",
+        companion3dOff: false,
         companionHalfFramerateMode: "when_saving_power",
         companionAnimateWhenHidden: false,
       });
@@ -299,6 +357,7 @@ describe("OnboardingWizard", () => {
         t: (key: string) => key,
         onboardingUiRevealNonce: 0,
         companionVrmPowerMode: "balanced",
+        companion3dOff: false,
         companionHalfFramerateMode: "when_saving_power",
         companionAnimateWhenHidden: false,
       });
@@ -335,6 +394,7 @@ describe("OnboardingWizard", () => {
         t: (key: string) => key,
         onboardingUiRevealNonce: 1,
         companionVrmPowerMode: "balanced",
+        companion3dOff: false,
         companionHalfFramerateMode: "when_saving_power",
         companionAnimateWhenHidden: false,
       });
@@ -366,6 +426,7 @@ describe("OnboardingWizard", () => {
       t: (key: string) => key,
       onboardingUiRevealNonce: 0,
       companionVrmPowerMode: "balanced",
+      companion3dOff: false,
       companionHalfFramerateMode: "when_saving_power",
       companionAnimateWhenHidden: false,
     });

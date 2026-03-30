@@ -161,6 +161,7 @@ function CompanionSceneSurface({
     uiTheme,
     tab,
     companionVrmPowerMode,
+    companion3dOff,
     companionHalfFramerateMode,
     companionAnimateWhenHidden,
   } = useCompanionSceneConfig();
@@ -408,6 +409,8 @@ function CompanionSceneSurface({
     uiTheme === "dark"
       ? resolveAppAssetUrl("worlds/companion-night.spz")
       : resolveAppAssetUrl("worlds/companion-day.spz");
+  const effectiveWorldUrl =
+    companionVrmPowerMode === "low_res" ? undefined : worldUrl;
   const [teleportCompletedKey, setTeleportCompletedKey] = useState<
     string | null
   >(null);
@@ -624,11 +627,11 @@ function CompanionSceneSurface({
       >
         <div className="absolute inset-0 z-0 bg-cover opacity-60 bg-[radial-gradient(circle_at_10%_20%,rgba(255,255,255,0.03)_0%,transparent_40%),radial-gradient(circle_at_80%_80%,rgba(0,225,255,0.05)_0%,transparent_40%)] pointer-events-none" />
 
-        {shouldMountVrm && (
+        {shouldMountVrm && !companion3dOff && (
           <VrmStage
             active={active}
             vrmPath={vrmPath}
-            worldUrl={worldUrl}
+            worldUrl={effectiveWorldUrl}
             fallbackPreviewUrl={fallbackPreviewUrl}
             cameraProfile="companion"
             companionVrmPowerMode={companionVrmPowerMode}
@@ -638,6 +641,13 @@ function CompanionSceneSurface({
             onLayerEngineReady={handleStageLayerEngineReady}
             playWaveOnAvatarChange={false}
             t={t}
+          />
+        )}
+        {shouldMountVrm && companion3dOff && (
+          <img
+            src={fallbackPreviewUrl}
+            alt={t("companion.avatarPreviewAlt")}
+            className="absolute left-1/2 top-[52%] z-20 -translate-x-1/2 -translate-y-1/2 h-[90%] object-contain opacity-70"
           />
         )}
       </div>

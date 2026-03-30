@@ -12,6 +12,7 @@ export function useApp(): AppContextValue {
         get(_, prop) {
           if (prop === "t") return (k: string) => k;
           if (prop === "uiLanguage") return "en";
+          if (prop === "companion3dOff") return false;
           if (prop === "companionHalfFramerateMode") return "when_saving_power";
           if (prop === "navigation") {
             return {

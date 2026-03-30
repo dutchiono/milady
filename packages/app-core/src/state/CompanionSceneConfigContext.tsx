@@ -24,6 +24,7 @@ export interface CompanionSceneConfig {
   uiTheme: UiTheme;
   tab: Tab;
   companionVrmPowerMode: CompanionVrmPowerMode;
+  companion3dOff: boolean;
   companionHalfFramerateMode: CompanionHalfFramerateMode;
   companionAnimateWhenHidden: boolean;
 }
@@ -41,6 +42,7 @@ export function useCompanionSceneConfig(): CompanionSceneConfig {
         uiTheme: "dark",
         tab: "chat",
         companionVrmPowerMode: "balanced",
+        companion3dOff: false,
         companionHalfFramerateMode: "when_saving_power",
         companionAnimateWhenHidden: false,
       };

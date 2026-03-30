@@ -55,9 +55,12 @@ export function OnboardingWizard() {
     setState,
     t,
     onboardingUiRevealNonce,
+    companionVrmPowerMode,
+    companion3dOff,
   } = useApp();
+  const disableLiveVrm = disableVrm || companion3dOff;
   const revealWelcomeUiImmediately =
-    disableVrm ||
+    disableLiveVrm ||
     onboardingStep === "cloud_login" ||
     onboardingUiRevealNonce > 0;
   // After Reset Agent from chat/companion, nonce bumps: show cloud ui immediately instead
@@ -79,7 +82,10 @@ export function OnboardingWizard() {
     selectedVrmIndex > 0
       ? getVrmPreviewUrl(safeSelectedVrmIndex)
       : getVrmPreviewUrl(1);
-  const worldUrl = resolveAppAssetUrl("worlds/companion-day.spz");
+  const worldUrl =
+    companionVrmPowerMode === "low_res"
+      ? undefined
+      : resolveAppAssetUrl("worlds/companion-day.spz");
 
   useEffect(() => {
     // Onboarding keeps a fixed "light" chrome; companion mode owns day/night scenes.
@@ -127,7 +133,7 @@ export function OnboardingWizard() {
   // No VrmStage: engine never emits teleport-complete; bridge roster preview to the same event.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!disableVrm || onboardingStep !== "identity") return;
+    if (!disableLiveVrm || onboardingStep !== "identity") return;
     const bridge = () => {
       dispatchWindowEvent(VRM_TELEPORT_COMPLETE_EVENT);
     };
@@ -141,7 +147,7 @@ export function OnboardingWizard() {
         bridge,
       );
     };
-  }, [disableVrm, onboardingStep]);
+  }, [disableLiveVrm, onboardingStep]);
 
   function renderStep() {
     switch (onboardingStep) {
@@ -155,7 +161,7 @@ export function OnboardingWizard() {
       case "permissions":
         return <PermissionsStep />;
       case "identity":
-        return <IdentityStep gateVoicePreviewOnTeleport={!disableVrm} />;
+        return <IdentityStep gateVoicePreviewOnTeleport={!disableLiveVrm} />;
       case "launch":
         return <ActivateStep />;
       default:
@@ -166,7 +172,7 @@ export function OnboardingWizard() {
   return (
     <div className="onboarding-screen">
       {/* Keep browser E2E runs lightweight and deterministic by skipping VRM boot. */}
-      {disableVrm ? (
+      {disableLiveVrm ? (
         <div
           aria-hidden="true"
           className="absolute inset-0 z-10 pointer-events-none"
@@ -174,7 +180,15 @@ export function OnboardingWizard() {
             background:
               "radial-gradient(circle at 50% 25%, rgba(255,255,255,0.16), transparent 34%), linear-gradient(180deg, rgba(17,17,17,0.08), rgba(10,10,10,0.36))",
           }}
-        />
+        >
+          {companion3dOff ? (
+            <img
+              src={fallbackPreview}
+              alt={t("companion.avatarPreviewAlt")}
+              className="absolute left-1/2 top-[52%] -translate-x-1/2 -translate-y-1/2 h-[90%] object-contain opacity-70"
+            />
+          ) : null}
+        </div>
       ) : (
         <VrmStage
           vrmPath={vrmPath}

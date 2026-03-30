@@ -6,6 +6,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const testState = vi.hoisted(() => ({
   viewerProps: null as Record<string, unknown> | null,
+  useApp: vi.fn(() => ({
+    selectedVrmIndex: 1,
+    customVrmUrl: null,
+    companionVrmPowerMode: "balanced",
+    companion3dOff: false,
+    companionHalfFramerateMode: "when_saving_power",
+    companionAnimateWhenHidden: false,
+  })),
 }));
 
 vi.mock("@miladyai/app-core/events", () => ({
@@ -16,10 +24,7 @@ vi.mock("@miladyai/app-core/events", () => ({
 vi.mock("@miladyai/app-core/state", () => ({
   getVrmPreviewUrl: vi.fn(() => "/vrms/previews/eliza-1.png"),
   getVrmUrl: vi.fn(() => "/vrms/eliza-1.vrm.gz"),
-  useApp: () => ({
-    selectedVrmIndex: 1,
-    customVrmUrl: null,
-  }),
+  useApp: () => testState.useApp(),
 }));
 
 vi.mock("@miladyai/app-core/utils", () => ({
@@ -44,6 +49,14 @@ describe("ChatAvatar", () => {
 
   beforeEach(() => {
     testState.viewerProps = null;
+    testState.useApp.mockReturnValue({
+      selectedVrmIndex: 1,
+      customVrmUrl: null,
+      companionVrmPowerMode: "balanced",
+      companion3dOff: false,
+      companionHalfFramerateMode: "when_saving_power",
+      companionAnimateWhenHidden: false,
+    });
     renderer = null;
     vi.useFakeTimers();
   });
@@ -90,6 +103,26 @@ describe("ChatAvatar", () => {
       onEngineState?.({ vrmLoaded: false, loadError: "failed to load" });
     });
 
+    const previewImages = renderer?.root.findAllByType("img") ?? [];
+    expect(previewImages).toHaveLength(1);
+    expect(previewImages[0]?.props.src).toBe("/vrms/previews/eliza-1.png");
+  });
+
+  it("shows the static preview immediately and skips live vrm when 3d is off", async () => {
+    testState.useApp.mockReturnValue({
+      selectedVrmIndex: 1,
+      customVrmUrl: null,
+      companionVrmPowerMode: "balanced",
+      companion3dOff: true,
+      companionHalfFramerateMode: "when_saving_power",
+      companionAnimateWhenHidden: false,
+    });
+
+    await act(async () => {
+      renderer = TestRenderer.create(React.createElement(ChatAvatar));
+    });
+
+    expect(renderer?.root.findAllByProps({ "data-testid": "vrm-viewer" })).toHaveLength(0);
     const previewImages = renderer?.root.findAllByType("img") ?? [];
     expect(previewImages).toHaveLength(1);
     expect(previewImages[0]?.props.src).toBe("/vrms/previews/eliza-1.png");

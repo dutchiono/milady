@@ -165,6 +165,7 @@ import {
   type LoadConversationMessagesResult,
   loadActiveConversationId,
   loadAvatarIndex,
+  loadCompanion3dOff,
   loadCompanionAnimateWhenHidden,
   loadCompanionHalfFramerateMode,
   loadCompanionVrmPowerMode,
@@ -192,6 +193,7 @@ import {
   type ShellView,
   type StartupErrorState,
   saveAvatarIndex,
+  saveCompanion3dOff,
   saveCompanionAnimateWhenHidden,
   saveCompanionHalfFramerateMode,
   saveCompanionVrmPowerMode,
@@ -263,6 +265,7 @@ export {
   loadChatAvatarVisible,
   loadChatMode,
   loadChatVoiceMuted,
+  loadCompanion3dOff,
   loadCompanionAnimateWhenHidden,
   loadCompanionHalfFramerateMode,
   loadCompanionVrmPowerMode,
@@ -298,6 +301,7 @@ export {
   saveChatAvatarVisible,
   saveChatMode,
   saveChatVoiceMuted,
+  saveCompanion3dOff,
   saveCompanionAnimateWhenHidden,
   saveCompanionHalfFramerateMode,
   saveCompanionVrmPowerMode,
@@ -660,6 +664,8 @@ function AppProviderInner({
   const [uiTheme, setUiThemeState] = useState<UiTheme>(loadUiTheme);
   const [companionVrmPowerMode, setCompanionVrmPowerModeState] =
     useState<CompanionVrmPowerMode>(loadCompanionVrmPowerMode);
+  const [companion3dOff, setCompanion3dOffState] =
+    useState<boolean>(loadCompanion3dOff);
   const [companionAnimateWhenHidden, setCompanionAnimateWhenHiddenState] =
     useState<boolean>(loadCompanionAnimateWhenHidden);
   const [companionHalfFramerateMode, setCompanionHalfFramerateModeState] =
@@ -1487,6 +1493,14 @@ function AppProviderInner({
   useEffect(() => {
     saveCompanionVrmPowerMode(companionVrmPowerMode);
   }, [companionVrmPowerMode]);
+
+  const setCompanion3dOff = useCallback((enabled: boolean) => {
+    setCompanion3dOffState(enabled);
+  }, []);
+
+  useEffect(() => {
+    saveCompanion3dOff(companion3dOff);
+  }, [companion3dOff]);
 
   const setCompanionAnimateWhenHidden = useCallback((enabled: boolean) => {
     setCompanionAnimateWhenHiddenState(enabled);
@@ -6539,6 +6553,7 @@ function AppProviderInner({
         chatMode: setChatMode,
         chatAvatarSpeaking: setChatAvatarSpeaking,
         companionMessageCutoffTs: setCompanionMessageCutoffTs,
+        companion3dOff: setCompanion3dOff,
         uiShellMode: setUiShellMode,
         uiLanguage: setUiLanguage as (v: AppState["uiLanguage"]) => void,
         autonomousRunHealthByRunId: setAutonomousRunHealthByRunId,
@@ -6677,6 +6692,7 @@ function AppProviderInner({
       setChatInput,
       setChatLastUsage,
       setChatMode,
+      setCompanion3dOff,
       setCompanionMessageCutoffTs,
       setOnboardingApiKey,
       setOnboardingAvatar,
@@ -7908,6 +7924,7 @@ function AppProviderInner({
       uiTheme,
       tab,
       companionVrmPowerMode,
+      companion3dOff,
       companionHalfFramerateMode,
       companionAnimateWhenHidden,
     }),
@@ -7917,6 +7934,7 @@ function AppProviderInner({
       uiTheme,
       tab,
       companionVrmPowerMode,
+      companion3dOff,
       companionHalfFramerateMode,
       companionAnimateWhenHidden,
     ],
@@ -7931,6 +7949,7 @@ function AppProviderInner({
     uiLanguage,
     uiTheme,
     companionVrmPowerMode,
+    companion3dOff,
     companionAnimateWhenHidden,
     companionHalfFramerateMode,
     connected,
@@ -8188,6 +8207,7 @@ function AppProviderInner({
     setUiLanguage,
     setUiTheme,
     setCompanionVrmPowerMode,
+    setCompanion3dOff,
     setCompanionAnimateWhenHidden,
     setCompanionHalfFramerateMode,
     handleStart,

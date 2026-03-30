@@ -27,6 +27,7 @@ vi.mock("@miladyai/app-core/state", () => ({
       uiTheme: (state.uiTheme as string | undefined) ?? "light",
       tab: (state.tab as string | undefined) ?? "companion",
       companionVrmPowerMode: "balanced",
+      companion3dOff: false,
       companionHalfFramerateMode: "when_saving_power",
       companionAnimateWhenHidden: false,
     };

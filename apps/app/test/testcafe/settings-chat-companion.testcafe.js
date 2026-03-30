@@ -30,6 +30,7 @@ const readLs = ClientFunction((key) => {
 const resetCompanionPrefs = ClientFunction(() => {
   try {
     localStorage.setItem("eliza:companion-vrm-power", "balanced");
+    localStorage.setItem("eliza:companion-3d-off", "0");
     localStorage.setItem("eliza:companion-half-framerate", "when_saving_power");
     localStorage.setItem("eliza:companion-animate-when-hidden", "0");
   } catch {
@@ -58,6 +59,7 @@ function seedStorage() {
     localStorage.setItem("eliza:ui-shell-mode", "native");
     localStorage.setItem("eliza:ui-language", "en");
     localStorage.setItem("eliza:companion-vrm-power", "balanced");
+    localStorage.setItem("eliza:companion-3d-off", "0");
     localStorage.setItem("eliza:companion-half-framerate", "when_saving_power");
     localStorage.setItem("eliza:companion-animate-when-hidden", "0");
   });
@@ -88,6 +90,7 @@ test.skipJsErrors()(
     const halfCard = Selector(
       '[data-testid="settings-companion-half-framerate"]',
     );
+    const offCard = Selector('[data-testid="settings-companion-3d-off"]');
     const animateCard = Selector(
       '[data-testid="settings-companion-animate-when-hidden"]',
     );
@@ -99,19 +102,21 @@ test.skipJsErrors()(
         "Companion VRM block should render (companion mode on, media config loaded)",
       );
 
-    const btnEfficient = vrmCard
-      .find("button")
-      .withExactText("Always efficient");
+    const btnLowRes = vrmCard.find("button").withExactText("Low res");
     const btnAlwaysHalf = halfCard.find("button").withExactText("Always half");
+    const offSwitch = offCard.find('[role="switch"]');
     const animateSwitch = animateCard.find('[role="switch"]');
 
-    await t.click(btnEfficient);
-    await t.expect(await readLs("eliza:companion-vrm-power")).eql("efficiency");
+    await t.click(btnLowRes);
+    await t.expect(await readLs("eliza:companion-vrm-power")).eql("low_res");
 
     await t.click(btnAlwaysHalf);
     await t
       .expect(await readLs("eliza:companion-half-framerate"))
       .eql("always");
+
+    await t.click(offSwitch);
+    await t.expect(await readLs("eliza:companion-3d-off")).eql("1");
 
     await t.click(animateSwitch);
     await t
@@ -146,6 +151,7 @@ test.skipJsErrors()(
     const halfAfter = Selector(
       '[data-testid="settings-companion-half-framerate"]',
     );
+    const offAfter = Selector('[data-testid="settings-companion-3d-off"]');
     const animateAfter = Selector(
       '[data-testid="settings-companion-animate-when-hidden"]',
     );
@@ -154,9 +160,9 @@ test.skipJsErrors()(
       .expect(
         vrmAfter
           .find('button[aria-pressed="true"]')
-          .withExactText("Always efficient").exists,
+          .withExactText("Low res").exists,
       )
-      .ok("VRM power should stay on Always efficient after navigation");
+      .ok("VRM power should stay on Low res after navigation");
 
     await t
       .expect(
@@ -165,6 +171,10 @@ test.skipJsErrors()(
           .withExactText("Always half").exists,
       )
       .ok("Half framerate should stay on Always half after navigation");
+
+    await t
+      .expect(offAfter.find('[role="switch"]').getAttribute("data-state"))
+      .eql("checked", "3D off switch should stay on");
 
     await t
       .expect(animateAfter.find('[role="switch"]').getAttribute("data-state"))
@@ -179,6 +189,9 @@ test.skipJsErrors()(
       vrmAfter.find("button").withExactText("Depends on power source"),
     );
     await t.expect(await readLs("eliza:companion-vrm-power")).eql("balanced");
+
+    await t.click(offAfter.find('[role="switch"]'));
+    await t.expect(await readLs("eliza:companion-3d-off")).eql("0");
 
     await t.click(
       halfAfter.find("button").withExactText("Depends on power source"),

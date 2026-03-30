@@ -87,6 +87,16 @@ describe("vrm-desktop-energy", () => {
     expect(engine.setHalfFramerateMode).toHaveBeenCalledWith(true);
   });
 
+  it("low_res + not Electrobun sets low-power and half-FPS", async () => {
+    isElectrobunMock.mockReturnValue(false);
+    const engine = stubEngine();
+    await refreshVrmDesktopBatteryPixelPolicy(engine, {
+      companionVrmPowerMode: "low_res",
+    });
+    expect(engine.setLowPowerRenderMode).toHaveBeenCalledWith(true);
+    expect(engine.setHalfFramerateMode).toHaveBeenCalledWith(true);
+  });
+
   it("quality + Electrobun + cap + onBattery clears low-power; half-FPS off by default", async () => {
     isElectrobunMock.mockReturnValue(true);
     invokeMock.mockResolvedValue({ onBattery: true });
@@ -105,6 +115,17 @@ describe("vrm-desktop-energy", () => {
     await refreshVrmDesktopBatteryPixelPolicy(engine, {
       companionVrmPowerMode: "efficiency",
     });
+    expect(engine.setLowPowerRenderMode).toHaveBeenCalledWith(true);
+    expect(engine.setHalfFramerateMode).toHaveBeenCalledWith(true);
+  });
+
+  it("low_res + Electrobun + cap sets low-power without polling power state", async () => {
+    isElectrobunMock.mockReturnValue(true);
+    const engine = stubEngine();
+    await refreshVrmDesktopBatteryPixelPolicy(engine, {
+      companionVrmPowerMode: "low_res",
+    });
+    expect(invokeMock).not.toHaveBeenCalled();
     expect(engine.setLowPowerRenderMode).toHaveBeenCalledWith(true);
     expect(engine.setHalfFramerateMode).toHaveBeenCalledWith(true);
   });

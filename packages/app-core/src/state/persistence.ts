@@ -79,7 +79,11 @@ const LEGACY_COMPANION_QUALITY_ON_BATTERY_KEY =
 export function normalizeCompanionVrmPowerMode(
   value: unknown,
 ): CompanionVrmPowerMode {
-  return value === "quality" || value === "efficiency" ? value : "balanced";
+  return value === "quality" ||
+    value === "efficiency" ||
+    value === "low_res"
+    ? value
+    : "balanced";
 }
 
 /**
@@ -88,7 +92,12 @@ export function normalizeCompanionVrmPowerMode(
 export function loadCompanionVrmPowerMode(): CompanionVrmPowerMode {
   try {
     const raw = localStorage.getItem(COMPANION_VRM_POWER_STORAGE_KEY);
-    if (raw === "quality" || raw === "balanced" || raw === "efficiency") {
+    if (
+      raw === "quality" ||
+      raw === "balanced" ||
+      raw === "efficiency" ||
+      raw === "low_res"
+    ) {
       return raw;
     }
     const legacyEffPresent =
@@ -125,6 +134,30 @@ export function saveCompanionVrmPowerMode(mode: CompanionVrmPowerMode): void {
     localStorage.setItem(COMPANION_VRM_POWER_STORAGE_KEY, next);
     localStorage.removeItem(LEGACY_COMPANION_EFFICIENCY_KEY);
     localStorage.removeItem(LEGACY_COMPANION_QUALITY_ON_BATTERY_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+const COMPANION_3D_OFF_STORAGE_KEY = "eliza:companion-3d-off";
+
+export function normalizeCompanion3dOff(value: unknown): boolean {
+  return value === true || value === "1" || value === 1;
+}
+
+export function loadCompanion3dOff(): boolean {
+  try {
+    return normalizeCompanion3dOff(
+      localStorage.getItem(COMPANION_3D_OFF_STORAGE_KEY),
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function saveCompanion3dOff(enabled: boolean): void {
+  try {
+    localStorage.setItem(COMPANION_3D_OFF_STORAGE_KEY, enabled ? "1" : "0");
   } catch {
     // ignore
   }

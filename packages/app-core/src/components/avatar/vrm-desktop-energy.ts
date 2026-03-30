@@ -60,6 +60,7 @@ function resolveHalfFramerateEnabled(
  *
  * - **`quality`:** never low-power visuals.
  * - **`efficiency`:** always low-power visuals.
+ * - **`low_res`:** always low-power visuals.
  * - **`balanced`:** low-power visuals only when on battery and the battery pixel cap path is active.
  *
  * Half-FPS follows **`companionHalfFramerateMode`**: default ties it to the same
@@ -72,11 +73,12 @@ export async function refreshVrmDesktopBatteryPixelPolicy(
   const mode = options?.companionVrmPowerMode ?? "balanced";
   const halfMode = options?.companionHalfFramerateMode ?? "when_saving_power";
   if (!engine?.isInitialized()) return;
+  const forceLowPowerVisual = mode === "efficiency" || mode === "low_res";
 
   let lowPowerVisual: boolean;
 
   if (!isElectrobunRuntime()) {
-    lowPowerVisual = mode === "efficiency";
+    lowPowerVisual = forceLowPowerVisual;
     engine.setLowPowerRenderMode(lowPowerVisual);
     engine.setHalfFramerateMode(
       resolveHalfFramerateEnabled(halfMode, lowPowerVisual),
@@ -84,11 +86,16 @@ export async function refreshVrmDesktopBatteryPixelPolicy(
     return;
   }
   if (!isVrmBatteryPixelCapEnabled()) {
-    lowPowerVisual = mode === "efficiency";
+    lowPowerVisual = forceLowPowerVisual;
     engine.setLowPowerRenderMode(lowPowerVisual);
     engine.setHalfFramerateMode(
       resolveHalfFramerateEnabled(halfMode, lowPowerVisual),
     );
+    return;
+  }
+  if (forceLowPowerVisual) {
+    engine.setLowPowerRenderMode(true);
+    engine.setHalfFramerateMode(resolveHalfFramerateEnabled(halfMode, true));
     return;
   }
   const power = await invokeDesktopBridgeRequest<DesktopPowerState>({
@@ -98,8 +105,6 @@ export async function refreshVrmDesktopBatteryPixelPolicy(
   if (!power) return;
   if (mode === "quality") {
     lowPowerVisual = false;
-  } else if (mode === "efficiency") {
-    lowPowerVisual = true;
   } else {
     lowPowerVisual = power.onBattery === true;
   }

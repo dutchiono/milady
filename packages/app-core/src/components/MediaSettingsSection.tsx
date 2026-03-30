@@ -58,6 +58,7 @@ const COMPANION_VRM_POWER_OPTIONS: readonly CompanionVrmPowerMode[] = [
   "quality",
   "balanced",
   "efficiency",
+  "low_res",
 ];
 
 const COMPANION_HALF_FRAMERATE_OPTIONS: readonly CompanionHalfFramerateMode[] =
@@ -1116,6 +1117,8 @@ export function MediaSettingsSection() {
     elizaCloudConnected,
     companionVrmPowerMode,
     setCompanionVrmPowerMode,
+    companion3dOff,
+    setCompanion3dOff,
     companionAnimateWhenHidden,
     setCompanionAnimateWhenHidden,
     companionHalfFramerateMode,
@@ -1323,6 +1326,25 @@ export function MediaSettingsSection() {
                   </Button>
                 );
               })}
+            </div>
+          </div>
+          <div
+            className="flex flex-col gap-2 border-t border-border pt-3"
+            data-testid="settings-companion-3d-off"
+          >
+            <div className="text-xs font-semibold text-txt">
+              {t("settings.companion3dOff.title")}
+            </div>
+            <div className="flex items-end justify-between gap-3">
+              <div className="min-w-0 flex-1 text-[10px] text-muted leading-snug pr-2">
+                {t("settings.companion3dOff.desc")}
+              </div>
+              <Switch
+                className="shrink-0"
+                checked={companion3dOff}
+                onCheckedChange={(v) => setCompanion3dOff(v)}
+                aria-label={t("settings.companion3dOff.title")}
+              />
             </div>
           </div>
           <div
