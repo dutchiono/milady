@@ -19,7 +19,7 @@ env:
 jobs:
   validate-release-workflow:
     name: Release Workflow Contract
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ${{ vars.RUNNER_UBUNTU || 'blacksmith-4vcpu-ubuntu-2404' }}
     timeout-minutes: 20
     defaults:
       run:
