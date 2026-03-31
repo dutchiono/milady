@@ -8,6 +8,8 @@ import {
   buildCodesignArgs,
   classifyMachOKind,
   isRetryableCodesignFailure,
+  materializeLinuxBundleSymlinks,
+  resolvePostBuildBundlePath,
   resolveRuntimeNodeModulesPath,
   shouldConsiderForCodesign,
 } from "../../scripts/postwrap-sign-runtime-macos";
@@ -77,6 +79,24 @@ describe("isRetryableCodesignFailure", () => {
 });
 
 describe("resolveRuntimeNodeModulesPath", () => {
+  it("derives the Linux postBuild bundle path from ELECTROBUN_BUILD_DIR", () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "postwrap-sign-"));
+    const stableBundle = path.join(tempDir, "Milady");
+    const canaryBundle = path.join(tempDir, "Milady canary");
+    fs.mkdirSync(path.join(stableBundle, "bin"), { recursive: true });
+    fs.mkdirSync(path.join(stableBundle, "resources"), { recursive: true });
+    fs.mkdirSync(path.join(canaryBundle, "bin"), { recursive: true });
+    fs.mkdirSync(path.join(canaryBundle, "resources"), { recursive: true });
+
+    expect(
+      resolvePostBuildBundlePath([], {
+        ELECTROBUN_BUILD_DIR: tempDir,
+        ELECTROBUN_OS: "linux",
+        ELECTROBUN_APP_NAME: "Milady-canary",
+      }),
+    ).toBe(canaryBundle);
+  });
+
   it("accepts an explicit runtime node_modules path", () => {
     expect(
       resolveRuntimeNodeModulesPath(
@@ -180,6 +200,47 @@ describe("resolveRuntimeNodeModulesPath", () => {
   it("accepts an explicit dist/node_modules path for pre-wrap signing", () => {
     expect(resolveRuntimeNodeModulesPath(["/tmp/dist/node_modules"], {})).toBe(
       "/tmp/dist/node_modules",
+    );
+  });
+});
+
+describe("materializeLinuxBundleSymlinks", () => {
+  it("replaces Linux file symlinks with copied payloads inside the bundle", () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "postwrap-linux-"));
+    const bundlePath = path.join(tempDir, "Milady");
+    const targetDir = path.join(bundlePath, "bin", "cef");
+    const targetPath = path.join(targetDir, "libEGL.so");
+    const symlinkPath = path.join(bundlePath, "bin", "libEGL.so");
+
+    fs.mkdirSync(targetDir, { recursive: true });
+    fs.mkdirSync(path.join(bundlePath, "resources"), { recursive: true });
+    fs.writeFileSync(targetPath, "cef-egl");
+    fs.chmodSync(targetPath, 0o755);
+    fs.symlinkSync(path.join("cef", "libEGL.so"), symlinkPath);
+
+    expect(materializeLinuxBundleSymlinks(bundlePath)).toEqual([
+      "bin/libEGL.so",
+    ]);
+    expect(fs.lstatSync(symlinkPath).isSymbolicLink()).toBe(false);
+    expect(fs.readFileSync(symlinkPath, "utf8")).toBe("cef-egl");
+  });
+
+  it("rejects symlinks that escape the bundle root", () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "postwrap-linux-"));
+    const bundlePath = path.join(tempDir, "Milady");
+    const outsidePath = path.join(tempDir, "outside.txt");
+    const symlinkPath = path.join(bundlePath, "bin", "escaped.txt");
+
+    fs.mkdirSync(path.join(bundlePath, "bin"), { recursive: true });
+    fs.mkdirSync(path.join(bundlePath, "resources"), { recursive: true });
+    fs.writeFileSync(outsidePath, "outside");
+    fs.symlinkSync(
+      path.relative(path.dirname(symlinkPath), outsidePath),
+      symlinkPath,
+    );
+
+    expect(() => materializeLinuxBundleSymlinks(bundlePath)).toThrow(
+      /refusing to materialize symlink outside bundle/i,
     );
   });
 });

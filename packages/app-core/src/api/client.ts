@@ -24,12 +24,12 @@ import type {
 import type { DropStatus, MintResult } from "@miladyai/agent/contracts/drop";
 import type {
   CloudProviderOption,
-  ConnectorConfig,
   InventoryProviderOption,
   MessageExample,
   MessageExampleContent,
   ModelOption,
   OnboardingConnection,
+  OnboardingConnectorConfig as ConnectorConfig,
   OnboardingData,
   OnboardingOptions,
   OpenRouterModelOption,
@@ -39,7 +39,7 @@ import type {
   StylePreset,
   SubscriptionProviderStatus,
   SubscriptionStatusResponse,
-} from "@miladyai/agent/contracts/onboarding";
+} from "@miladyai/shared/contracts/onboarding";
 import type {
   AllPermissionsState,
   PermissionState,
@@ -3854,6 +3854,17 @@ export class MiladyClient {
     );
   }
 
+  /** Fetch a pairing token for a cloud agent (for opening Web UI in a new tab). */
+  async getCloudCompatPairingToken(agentId: string): Promise<{
+    success: boolean;
+    data: { token: string; redirectUrl: string; expiresIn: number };
+  }> {
+    return this.fetch(
+      `/api/cloud/v1/milady/agents/${encodeURIComponent(agentId)}/pairing-token`,
+      { method: "POST" },
+    );
+  }
+
   /** Get cloud availability (capacity info). */
   async getCloudCompatAvailability(): Promise<{
     success: boolean;
@@ -4656,6 +4667,7 @@ export class MiladyClient {
     signal?: AbortSignal,
     images?: ImageAttachment[],
     conversationMode?: ConversationMode,
+    metadata?: Record<string, unknown>,
   ): Promise<{
     text: string;
     agentName: string;
@@ -4673,6 +4685,7 @@ export class MiladyClient {
         channelType,
         ...(images?.length ? { images } : {}),
         ...(conversationMode ? { conversationMode } : {}),
+        ...(metadata ? { metadata } : {}),
       }),
       signal,
     });
@@ -4964,6 +4977,7 @@ export class MiladyClient {
     signal?: AbortSignal,
     images?: ImageAttachment[],
     conversationMode?: ConversationMode,
+    metadata?: Record<string, unknown>,
   ): Promise<{
     text: string;
     agentName: string;
@@ -4978,6 +4992,7 @@ export class MiladyClient {
       signal,
       images,
       conversationMode,
+      metadata,
     );
   }
 

@@ -30,6 +30,12 @@ function joinPortable(base: string, ...parts: string[]): string {
     : path.join(base, ...parts);
 }
 
+function copyFileWithMode(sourcePath: string, destinationPath: string): void {
+  fs.mkdirSync(path.dirname(destinationPath), { recursive: true });
+  fs.copyFileSync(sourcePath, destinationPath);
+  fs.chmodSync(destinationPath, fs.statSync(sourcePath).mode);
+}
+
 export function classifyMachOKind(description: string): MachOKind {
   const normalized = description.toLowerCase();
   if (!normalized.includes("mach-o")) {
@@ -71,9 +77,29 @@ function normalizeBundleStem(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+function isBundleDirectory(
+  candidatePath: string,
+  osName: string,
+  dirent?: fs.Dirent,
+): boolean {
+  if (dirent && !dirent.isDirectory()) {
+    return false;
+  }
+
+  if (osName === "macos") {
+    return candidatePath.endsWith(".app");
+  }
+
+  return (
+    fs.existsSync(joinPortable(candidatePath, "bin")) &&
+    fs.existsSync(joinPortable(candidatePath, "resources"))
+  );
+}
+
 function resolveBuildBundlePath(env: NodeJS.ProcessEnv): string | null {
   const buildDir = env.ELECTROBUN_BUILD_DIR?.trim();
-  if (!buildDir || env.ELECTROBUN_OS !== "macos") {
+  const osName = env.ELECTROBUN_OS?.trim() || process.platform;
+  if (!buildDir) {
     return null;
   }
 
@@ -84,7 +110,13 @@ function resolveBuildBundlePath(env: NodeJS.ProcessEnv): string | null {
 
   const bundleCandidates = fs
     .readdirSync(resolvedBuildDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && entry.name.endsWith(".app"))
+    .filter((entry) =>
+      isBundleDirectory(
+        joinPortable(resolvedBuildDir, entry.name),
+        osName,
+        entry,
+      ),
+    )
     .map((entry) => joinPortable(resolvedBuildDir, entry.name));
 
   if (bundleCandidates.length === 0) {
@@ -113,28 +145,35 @@ function resolveBuildBundlePath(env: NodeJS.ProcessEnv): string | null {
   );
 }
 
-export function resolveRuntimeNodeModulesPath(
+export function resolvePostBuildBundlePath(
   args = process.argv.slice(2),
   env: NodeJS.ProcessEnv = process.env,
 ): string {
   const explicitPath = args.find((arg) => arg.trim().length > 0);
   if (explicitPath) {
-    return materializeRuntimePath(explicitPath);
+    return resolvePortablePath(explicitPath);
   }
 
   const wrapperBundle = env.ELECTROBUN_WRAPPER_BUNDLE_PATH?.trim();
   if (wrapperBundle) {
-    return materializeRuntimePath(wrapperBundle);
+    return resolvePortablePath(wrapperBundle);
   }
 
   const buildBundle = resolveBuildBundlePath(env);
   if (buildBundle) {
-    return materializeRuntimePath(buildBundle);
+    return buildBundle;
   }
 
   throw new Error(
-    "runtime-sign: runtime node_modules path not provided and no Electrobun bundle path was available",
+    "runtime-sign: postBuild bundle path not provided and no Electrobun bundle path was available",
   );
+}
+
+export function resolveRuntimeNodeModulesPath(
+  args = process.argv.slice(2),
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return materializeRuntimePath(resolvePostBuildBundlePath(args, env));
 }
 
 export function shouldConsiderForCodesign(
@@ -298,7 +337,7 @@ function signRuntimeFile(
   return true;
 }
 
-function shouldRun(env: NodeJS.ProcessEnv = process.env): boolean {
+function shouldRunMacCodesign(env: NodeJS.ProcessEnv = process.env): boolean {
   if (process.platform !== "darwin") {
     return false;
   }
@@ -311,8 +350,92 @@ function shouldRun(env: NodeJS.ProcessEnv = process.env): boolean {
   return true;
 }
 
+function assertPathInsideBundle(
+  bundlePath: string,
+  candidatePath: string,
+): void {
+  const normalizedBundlePath = path.resolve(bundlePath);
+  const normalizedCandidatePath = path.resolve(candidatePath);
+  const bundlePrefix = normalizedBundlePath.endsWith(path.sep)
+    ? normalizedBundlePath
+    : `${normalizedBundlePath}${path.sep}`;
+
+  if (
+    normalizedCandidatePath !== normalizedBundlePath &&
+    !normalizedCandidatePath.startsWith(bundlePrefix)
+  ) {
+    throw new Error(
+      `runtime-sign: refusing to materialize symlink outside bundle: ${candidatePath}`,
+    );
+  }
+}
+
+export function materializeLinuxBundleSymlinks(bundlePath: string): string[] {
+  const normalizedBundlePath = path.resolve(bundlePath);
+  const pending: string[] = [normalizedBundlePath];
+  const materialized: string[] = [];
+
+  while (pending.length > 0) {
+    const currentDir = pending.pop();
+    if (!currentDir) {
+      continue;
+    }
+
+    for (const entry of fs.readdirSync(currentDir, { withFileTypes: true })) {
+      const entryPath = path.join(currentDir, entry.name);
+      if (entry.isSymbolicLink()) {
+        const linkTarget = fs.readlinkSync(entryPath);
+        const resolvedTarget = path.resolve(
+          path.dirname(entryPath),
+          linkTarget,
+        );
+        assertPathInsideBundle(normalizedBundlePath, resolvedTarget);
+
+        const targetStats = fs.statSync(resolvedTarget);
+        fs.rmSync(entryPath, { force: true, recursive: true });
+
+        if (targetStats.isDirectory()) {
+          fs.cpSync(resolvedTarget, entryPath, {
+            dereference: true,
+            force: true,
+            recursive: true,
+          });
+          pending.push(entryPath);
+        } else {
+          copyFileWithMode(resolvedTarget, entryPath);
+        }
+
+        materialized.push(
+          path.relative(normalizedBundlePath, entryPath).replaceAll("\\", "/"),
+        );
+        continue;
+      }
+
+      if (entry.isDirectory()) {
+        pending.push(entryPath);
+      }
+    }
+  }
+
+  return materialized.sort();
+}
+
 function main(): void {
-  if (!shouldRun()) {
+  const osName = process.env.ELECTROBUN_OS?.trim() || process.platform;
+
+  if (osName === "linux") {
+    const bundlePath = resolvePostBuildBundlePath();
+    const materialized = materializeLinuxBundleSymlinks(bundlePath);
+    if (materialized.length > 0) {
+      console.log(
+        `[runtime-sign] materialized Linux bundle symlinks: ${materialized.join(", ")}`,
+      );
+    } else {
+      console.log("[runtime-sign] no Linux bundle symlinks to materialize");
+    }
+  }
+
+  if (!shouldRunMacCodesign()) {
     console.log("[runtime-sign] skipping nested runtime codesign");
     return;
   }

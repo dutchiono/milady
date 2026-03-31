@@ -70,6 +70,7 @@ import {
 import * as pluginAgentOrchestrator from "@elizaos/plugin-agent-orchestrator";
 import * as pluginAgentSkills from "@elizaos/plugin-agent-skills";
 import * as pluginAnthropic from "@elizaos/plugin-anthropic";
+import * as pluginCommands from "@elizaos/plugin-commands";
 import * as pluginCron from "@elizaos/plugin-cron";
 import * as pluginElizacloud from "@elizaos/plugin-elizacloud";
 import * as pluginExperience from "@elizaos/plugin-experience";
@@ -88,6 +89,7 @@ import * as pluginSql from "@elizaos/plugin-sql";
 import * as pluginTodo from "@elizaos/plugin-todo";
 import * as pluginTrajectoryLogger from "@elizaos/plugin-trajectory-logger";
 import * as pluginTrust from "@elizaos/plugin-trust";
+import * as pluginRoles from "@miladyai/plugin-roles";
 import {
   debugLogResolvedContext,
   validateRuntimeContext,
@@ -219,12 +221,14 @@ const STATIC_ELIZA_PLUGINS: Record<string, unknown> = {
   "@elizaos/plugin-shell": pluginShell,
   "@elizaos/plugin-plugin-manager": pluginPluginManager,
   "@elizaos/plugin-agent-skills": pluginAgentSkills,
+  "@elizaos/plugin-commands": pluginCommands,
   "@elizaos/plugin-pdf": pluginPdf,
   "@elizaos/plugin-openai": pluginOpenai,
   "@elizaos/plugin-anthropic": pluginAnthropic,
   "@elizaos/plugin-ollama": pluginOllama,
   "@elizaos/plugin-elizacloud": pluginElizacloud,
   "@elizaos/plugin-trust": pluginTrust,
+  "@miladyai/plugin-roles": pluginRoles,
   "@elizaos/plugin-todo": pluginTodo,
   "@elizaos/plugin-personality": pluginPersonality,
   "@elizaos/plugin-experience": pluginExperience,
@@ -938,7 +942,7 @@ export const CHANNEL_PLUGIN_MAP: Readonly<Record<string, string>> = {
 const PI_AI_PLUGIN_PACKAGE = "@elizaos/plugin-pi-ai";
 
 function isPiAiEnabledFromEnv(env: NodeJS.ProcessEnv = process.env): boolean {
-  const raw = env.ELIZA_USE_PI_AI;
+  const raw = env.ELIZA_USE_PI_AI ?? env.MILADY_USE_PI_AI;
   if (!raw) return false;
   const value = String(raw).trim().toLowerCase();
   return value === "1" || value === "true" || value === "yes";
@@ -959,6 +963,7 @@ const PROVIDER_PLUGIN_MAP: Readonly<Record<string, string>> = {
   OLLAMA_BASE_URL: "@elizaos/plugin-ollama",
   ZAI_API_KEY: "@homunculuslabs/plugin-zai",
   ELIZA_USE_PI_AI: PI_AI_PLUGIN_PACKAGE,
+  MILADY_USE_PI_AI: PI_AI_PLUGIN_PACKAGE,
   // ElizaCloud — loaded when API key is present OR cloud is explicitly enabled
   ELIZAOS_CLOUD_API_KEY: "@elizaos/plugin-elizacloud",
   ELIZAOS_CLOUD_ENABLED: "@elizaos/plugin-elizacloud",
@@ -1107,8 +1112,11 @@ export function collectPluginNames(config: ElizaConfig): Set<string> {
     (configEnv?.vars &&
     typeof configEnv.vars === "object" &&
     !Array.isArray(configEnv.vars)
-      ? (configEnv.vars as Record<string, unknown>).ELIZA_USE_PI_AI
-      : undefined) ?? configEnv?.ELIZA_USE_PI_AI;
+      ? ((configEnv.vars as Record<string, unknown>).ELIZA_USE_PI_AI ??
+        (configEnv.vars as Record<string, unknown>).MILADY_USE_PI_AI)
+      : undefined) ??
+    configEnv?.ELIZA_USE_PI_AI ??
+    configEnv?.MILADY_USE_PI_AI;
   const piAiEnabled =
     isPiAiEnabledFromEnv(process.env) ||
     (typeof configPiAiFlag === "string" &&
@@ -1182,7 +1190,7 @@ export function collectPluginNames(config: ElizaConfig): Set<string> {
 
   // Model-provider plugins — load when env key is present
   for (const [envKey, pluginName] of Object.entries(PROVIDER_PLUGIN_MAP)) {
-    if (envKey === "ELIZA_USE_PI_AI") {
+    if (envKey === "ELIZA_USE_PI_AI" || envKey === "MILADY_USE_PI_AI") {
       // pi-ai enablement uses dedicated boolean parsing + precedence logic below.
       continue;
     }
@@ -4416,6 +4424,42 @@ export async function startEliza(
           `[eliza] Boosted plugin "${plugin.name}" priority to ${plugin.priority} (model.primary)`,
         );
         break;
+      }
+    }
+  }
+
+  // ── Strip upstream skill providers ──────────────────────────────────────
+  // The upstream @elizaos/plugin-agent-skills registers providers that dump
+  // ALL loaded skills into every prompt (~2000-4000 tokens).  Milady replaces
+  // them with a BM25-lite dynamic provider (see providers/skill-provider.ts)
+  // that injects only the most relevant skills per turn.
+  //
+  // We keep:
+  //   - agent_skills_overview  (lightweight stats, ~50 tokens)
+  //   - all actions (GET_SKILL_GUIDANCE, SEARCH_SKILLS, INSTALL_SKILL, …)
+  //   - the AGENT_SKILLS_SERVICE itself
+  {
+    const UPSTREAM_SKILL_PROVIDERS_TO_STRIP = new Set([
+      "agent_skills",
+      "agent_skill_instructions",
+      "agent_skills_catalog",
+    ]);
+    for (const plugin of pluginsForRuntime) {
+      if (
+        plugin.name === "@elizaos/plugin-agent-skills" &&
+        Array.isArray(plugin.providers)
+      ) {
+        const before = plugin.providers.length;
+        plugin.providers = plugin.providers.filter(
+          (p: { name?: string }) =>
+            !UPSTREAM_SKILL_PROVIDERS_TO_STRIP.has(p.name ?? ""),
+        );
+        const removed = before - plugin.providers.length;
+        if (removed > 0) {
+          logger.info(
+            `[eliza] Stripped ${removed} upstream skill provider(s) — using dynamic BM25-lite provider instead`,
+          );
+        }
       }
     }
   }

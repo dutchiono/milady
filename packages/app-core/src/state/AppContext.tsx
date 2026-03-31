@@ -124,6 +124,7 @@ import {
   resolveOnboardingPreviousStep,
 } from "../onboarding/flow";
 import { buildOnboardingConnectionConfig } from "../onboarding-config";
+import { restartAgentAfterOnboarding } from "./onboarding-restart";
 import {
   alertDesktopMessage,
   confirmDesktopAction,
@@ -466,6 +467,7 @@ interface QueuedChatSend {
   channelType: ConversationChannelType;
   conversationId?: string | null;
   images?: ImageAttachment[];
+  metadata?: Record<string, unknown>;
   resolve: () => void;
   reject: (error: unknown) => void;
 }
@@ -1029,9 +1031,6 @@ function AppProviderInner({
     useState("/cloud/billing");
   const [elizaCloudUserId, setElizaCloudUserId] = useState<string | null>(null);
   const [ownerName, setOwnerNameState] = useState<string | null>(null);
-  const [ownerNameHydrated, setOwnerNameHydrated] = useState(false);
-  const [pendingOwnerNamePrompt, setPendingOwnerNamePrompt] = useState(false);
-  const [showOwnerNamePrompt, setShowOwnerNamePrompt] = useState(false);
   const [elizaCloudStatusReason, setElizaCloudStatusReason] = useState<
     string | null
   >(null);
@@ -1575,20 +1574,12 @@ function AppProviderInner({
   const switchShellView = useCallback(
     (view: ShellView) => {
       const nextTab = getTabForShellView(view, lastNativeTab);
-      // Gate: prompt for owner name the first time user enters desktop/native view
-      if (view === "desktop" && !ownerName && !showOwnerNamePrompt) {
-        if (ownerNameHydrated) {
-          setShowOwnerNamePrompt(true);
-        } else {
-          setPendingOwnerNamePrompt(true);
-        }
-      }
       console.log(
         `[shell] switchShellView: ${view} → tab=${nextTab}, lastNativeTab=${lastNativeTab}`,
       );
       setTab(nextTab);
     },
-    [lastNativeTab, ownerName, ownerNameHydrated, showOwnerNamePrompt, setTab],
+    [lastNativeTab, setTab],
   );
 
   const navigationHubRef = useRef(new NavigationEventHub());
@@ -2199,51 +2190,11 @@ function AppProviderInner({
         }
       })
       .catch(() => {})
-      .finally(() => {
-        if (!cancelled) {
-          setOwnerNameHydrated(true);
-        }
-      });
+      .catch(() => {});
 
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  useEffect(() => {
-    if (!ownerNameHydrated) {
-      return;
-    }
-
-    if (ownerName || showOwnerNamePrompt) {
-      if (pendingOwnerNamePrompt) {
-        setPendingOwnerNamePrompt(false);
-      }
-      return;
-    }
-
-    if (pendingOwnerNamePrompt && uiShellMode === "native") {
-      setShowOwnerNamePrompt(true);
-      setPendingOwnerNamePrompt(false);
-    }
-  }, [
-    ownerName,
-    ownerNameHydrated,
-    pendingOwnerNamePrompt,
-    showOwnerNamePrompt,
-    uiShellMode,
-  ]);
-
-  const handleOwnerNameSubmit = useCallback((name: string) => {
-    const normalized = normalizeOwnerName(name);
-    if (!normalized) {
-      return;
-    }
-
-    setOwnerNameState(normalized);
-    setShowOwnerNamePrompt(false);
-    setPendingOwnerNamePrompt(false);
-    void client.updateConfig({ ui: { ownerName: normalized } }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -3880,6 +3831,7 @@ function AppProviderInner({
           controller.signal,
           imagesToSend,
           conversationMode,
+          turn.metadata,
         );
 
         if (!data.text.trim()) {
@@ -4068,6 +4020,7 @@ function AppProviderInner({
         channelType?: ConversationChannelType;
         conversationId?: string | null;
         images?: ImageAttachment[];
+        metadata?: Record<string, unknown>;
       },
     ) => {
       const hasAttachedImages = Boolean(options?.images?.length);
@@ -4081,6 +4034,7 @@ function AppProviderInner({
           channelType: options?.channelType ?? "DM",
           conversationId: options?.conversationId,
           images: options?.images,
+          metadata: options?.metadata,
           resolve,
           reject,
         });
@@ -5540,7 +5494,7 @@ function AppProviderInner({
           }
 
           setOnboardingHandoffPhase("restarting");
-          setAgentStatus(await client.restartAgent());
+          setAgentStatus(await restartAgentAfterOnboarding(client));
           setOnboardingHandoffPhase("bootstrapping");
           await bootstrapConversationAfterAgentReady(
             "onboarding:cloud_fast_track",
@@ -5735,7 +5689,7 @@ function AppProviderInner({
         }
 
         setOnboardingHandoffPhase("restarting");
-        setAgentStatus(await client.restartAgent());
+        setAgentStatus(await restartAgentAfterOnboarding(client));
         setOnboardingHandoffPhase("bootstrapping");
         await bootstrapConversationAfterAgentReady("onboarding:full_finish", {
           forceFreshConversation: true,
@@ -8107,8 +8061,6 @@ function AppProviderInner({
     elizaCloudUserId,
     elizaCloudStatusReason,
     ownerName,
-    showOwnerNamePrompt,
-    handleOwnerNameSubmit,
     cloudDashboardView,
     elizaCloudLoginBusy,
     elizaCloudLoginError,
@@ -8267,6 +8219,7 @@ function AppProviderInner({
     handleRenameConversation,
     suggestConversationTitle,
     sendActionMessage,
+    sendChatText,
     loadTriggers,
     createTrigger,
     updateTrigger,

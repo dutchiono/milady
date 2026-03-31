@@ -2,6 +2,7 @@
 
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import {
   buildWindowsRepairSteps,
@@ -315,11 +316,9 @@ function runDesktopPreflight() {
     });
   }
 
-  const electrobunPkgPath = path.join(
+  const electrobunPkgPath = resolveWorkspacePackageManifestPath(
     ELECTROBUN_DIR,
-    "node_modules",
     "electrobun",
-    "package.json",
   );
   if (!fs.existsSync(electrobunPkgPath)) {
     failPreflight(
@@ -400,6 +399,55 @@ function runDesktopPreflight() {
     bunVersion,
     errorCode: "OK",
   });
+}
+
+function resolveWorkspacePackageManifestPath(cwd, packageName) {
+  const explicitCandidates = [
+    path.join(cwd, "node_modules", packageName, "package.json"),
+    path.join(ROOT, "node_modules", packageName, "package.json"),
+  ];
+
+  for (const candidate of explicitCandidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  const bunStoreDir = path.join(ROOT, "node_modules", ".bun");
+  if (fs.existsSync(bunStoreDir)) {
+    for (const entry of fs.readdirSync(bunStoreDir, { withFileTypes: true })) {
+      if (!entry.isDirectory() || !entry.name.startsWith(`${packageName}@`)) {
+        continue;
+      }
+      const candidate = path.join(
+        bunStoreDir,
+        entry.name,
+        "node_modules",
+        packageName,
+        "package.json",
+      );
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+  }
+
+  const requireCandidates = [
+    path.join(cwd, "package.json"),
+    path.join(ROOT, "package.json"),
+  ];
+
+  for (const packageJsonPath of requireCandidates) {
+    if (!fs.existsSync(packageJsonPath)) continue;
+    try {
+      const req = createRequire(packageJsonPath);
+      return req.resolve(`${packageName}/package.json`);
+    } catch {
+      // Try the next workspace root.
+    }
+  }
+
+  return path.join(cwd, "node_modules", packageName, "package.json");
 }
 
 function findLatestMacAppBundle() {
