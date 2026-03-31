@@ -12,56 +12,81 @@ vi.mock("@miladyai/app-core/state", () => ({
   useApp: () => mockUseApp(),
 }));
 
-vi.mock("@miladyai/ui", () => ({
-  Button: (props: Record<string, unknown>) =>
-    React.createElement(
-      "button",
-      { type: "button", ...props },
-      props.children as React.ReactNode,
-    ),
-  Select: (props: Record<string, unknown>) =>
-    React.createElement(
-      "mock-select",
-      props,
-      props.children as React.ReactNode,
-    ),
-  SelectTrigger: (props: Record<string, unknown>) =>
-    React.createElement(
-      "button",
-      { type: "button", ...props },
-      props.children as React.ReactNode,
-    ),
-  SelectContent: (props: Record<string, unknown>) =>
-    React.createElement("div", props, props.children as React.ReactNode),
-  SelectItem: (props: Record<string, unknown>) =>
-    React.createElement(
-      "mock-option",
-      props,
-      props.children as React.ReactNode,
-    ),
-  SelectValue: (props: Record<string, unknown>) =>
-    React.createElement("span", props, props.children as React.ReactNode),
-  Tooltip: (props: Record<string, unknown>) =>
-    React.createElement(
-      React.Fragment,
-      null,
-      props.children as React.ReactNode,
-    ),
-  TooltipContent: (props: Record<string, unknown>) =>
-    React.createElement("div", props, props.children as React.ReactNode),
-  TooltipProvider: (props: Record<string, unknown>) =>
-    React.createElement(
-      React.Fragment,
-      null,
-      props.children as React.ReactNode,
-    ),
-  TooltipTrigger: (props: Record<string, unknown>) =>
-    React.createElement(
-      React.Fragment,
-      null,
-      props.children as React.ReactNode,
-    ),
-}));
+vi.mock("@miladyai/ui", async () => {
+  const actual =
+    await vi.importActual<typeof import("@miladyai/ui")>("@miladyai/ui");
+  return {
+    ...actual,
+    Button: (props: Record<string, unknown>) =>
+      React.createElement(
+        "button",
+        { type: "button", ...props },
+        props.children as React.ReactNode,
+      ),
+    ConfirmDialog: (props: Record<string, unknown>) =>
+      React.createElement("div", props, props.children as React.ReactNode),
+    Dialog: (props: Record<string, unknown>) =>
+      React.createElement("div", props, props.children as React.ReactNode),
+    DialogContent: (props: Record<string, unknown>) =>
+      React.createElement("div", props, props.children as React.ReactNode),
+    DialogHeader: (props: Record<string, unknown>) =>
+      React.createElement("div", props, props.children as React.ReactNode),
+    DialogTitle: (props: Record<string, unknown>) =>
+      React.createElement("div", props, props.children as React.ReactNode),
+    Input: (props: Record<string, unknown>) =>
+      React.createElement("input", props),
+    Label: (props: Record<string, unknown>) =>
+      React.createElement("label", props, props.children as React.ReactNode),
+    Select: (props: Record<string, unknown>) =>
+      React.createElement(
+        "mock-select",
+        props,
+        props.children as React.ReactNode,
+      ),
+    SelectTrigger: (props: Record<string, unknown>) =>
+      React.createElement(
+        "button",
+        { type: "button", ...props },
+        props.children as React.ReactNode,
+      ),
+    SelectContent: (props: Record<string, unknown>) =>
+      React.createElement("div", props, props.children as React.ReactNode),
+    SelectItem: (props: Record<string, unknown>) =>
+      React.createElement(
+        "mock-option",
+        props,
+        props.children as React.ReactNode,
+      ),
+    SelectValue: (props: Record<string, unknown>) =>
+      React.createElement("span", props, props.children as React.ReactNode),
+    Slider: (props: Record<string, unknown>) =>
+      React.createElement("input", { type: "range", ...props }),
+    Spinner: (props: Record<string, unknown>) =>
+      React.createElement("div", { ...props, "data-testid": "spinner" }),
+    Switch: (props: Record<string, unknown>) =>
+      React.createElement("button", { type: "button", ...props }),
+    Tooltip: (props: Record<string, unknown>) =>
+      React.createElement(
+        React.Fragment,
+        null,
+        props.children as React.ReactNode,
+      ),
+    TooltipContent: (props: Record<string, unknown>) =>
+      React.createElement("div", props, props.children as React.ReactNode),
+    TooltipProvider: (props: Record<string, unknown>) =>
+      React.createElement(
+        React.Fragment,
+        null,
+        props.children as React.ReactNode,
+      ),
+    TooltipTrigger: (props: Record<string, unknown>) =>
+      React.createElement(
+        React.Fragment,
+        null,
+        props.children as React.ReactNode,
+      ),
+  };
+});
 
 vi.mock("../BscTradePanel", () => ({
   TradePanel: () =>

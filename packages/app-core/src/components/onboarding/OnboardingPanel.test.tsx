@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import TestRenderer, { act } from "react-test-renderer";
 import { describe, expect, it } from "vitest";
-import { OnboardingPanel } from "./OnboardingPanel";
+import {
+  OnboardingPanel,
+  onboardingPanelSurfaceClassName,
+} from "./OnboardingPanel";
 
 describe("OnboardingPanel", () => {
   it("anchors the panel to the right edge of the onboarding viewport", async () => {
@@ -20,7 +23,7 @@ describe("OnboardingPanel", () => {
     );
     expect(String(inner?.props.className)).toContain("max-h-full");
     expect(String(inner?.props.className)).toContain(
-      "bg-[var(--onboarding-panel-bg)]",
+      onboardingPanelSurfaceClassName,
     );
     expect(String(inner?.props.className)).toContain(
       "var(--onboarding-panel-shadow)",
