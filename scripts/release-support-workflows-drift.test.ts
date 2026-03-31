@@ -158,7 +158,15 @@ describe("release support workflow drift", () => {
   it("dispatches Homebrew updates to the actual tap repository", () => {
     const workflow = fs.readFileSync(UPDATE_HOMEBREW_WORKFLOW, "utf8");
 
-    expect(workflow).toContain("repository: milady-ai/homebrew-tap");
+    const hasStaticTapRepo = workflow.includes(
+      "repository: milady-ai/homebrew-tap",
+    );
+    const hasConfigurableTapRepo = workflow.includes(
+      "repository: $" +
+        "{{ vars.HOMEBREW_TAP_REPO || 'milady-ai/homebrew-tap' }}",
+    );
+
+    expect(hasStaticTapRepo || hasConfigurableTapRepo).toBe(true);
     expect(workflow).not.toContain("repository: milady-ai/homebrew-milady");
   });
 });
