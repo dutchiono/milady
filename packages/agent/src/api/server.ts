@@ -10256,6 +10256,8 @@ async function handleRequest(
         const vars = (envCfg.vars ?? {}) as Record<string, string>;
         const providerId =
           typeof body.provider === "string" ? body.provider : "";
+        const primaryModel =
+          typeof body.primaryModel === "string" ? body.primaryModel.trim() : "";
 
         // Persist vars back onto config.env
         (envCfg as Record<string, unknown>).vars = vars;
@@ -10291,6 +10293,22 @@ async function handleRequest(
           defaults.model = modelConfig;
         } else {
           clearPiAiFlag();
+        }
+
+        if (runMode === "local" && providerId === "ollama") {
+          if (!config.agents) config.agents = {};
+          if (!config.agents.defaults) config.agents.defaults = {};
+          const defaults = config.agents.defaults as Record<string, unknown>;
+          defaults.subscriptionProvider = "ollama";
+
+          if (primaryModel) {
+            const modelConfig = (defaults.model ?? {}) as Record<
+              string,
+              unknown
+            >;
+            modelConfig.primary = primaryModel;
+            defaults.model = modelConfig;
+          }
         }
 
         // API-key providers (envKey backed)
@@ -16948,10 +16966,9 @@ async function handleRequest(
     // Fallback to @elizaos/plugin-agent-orchestrator (npm)
     if (!handled) {
       try {
-        const orchestratorPlugin =
-          (await import(
-            "@elizaos/plugin-agent-orchestrator"
-          )) as OrchestratorPluginFallbackModule;
+        const orchestratorPlugin = (await import(
+          "@elizaos/plugin-agent-orchestrator"
+        )) as OrchestratorPluginFallbackModule;
         if (orchestratorPlugin.createCodingAgentRouteHandler) {
           const coordinator = orchestratorPlugin.getCoordinator?.(
             state.runtime,
