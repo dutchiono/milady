@@ -1218,7 +1218,12 @@ interface PluginListViewProps {
   headerSlot?: React.ReactNode;
 }
 
-function PluginListView({ label, mode = "all", inModal, headerSlot }: PluginListViewProps) {
+function PluginListView({
+  label,
+  mode = "all",
+  inModal,
+  headerSlot,
+}: PluginListViewProps) {
   const {
     plugins,
     pluginStatusFilter,
@@ -3542,5 +3547,12 @@ export function PluginsView({
           : mode === "all-social"
             ? "Plugins"
             : "Plugins";
-  return <PluginListView label={label} mode={mode} inModal={inModal} headerSlot={headerSlot} />;
+  return (
+    <PluginListView
+      label={label}
+      mode={mode}
+      inModal={inModal}
+      headerSlot={headerSlot}
+    />
+  );
 }

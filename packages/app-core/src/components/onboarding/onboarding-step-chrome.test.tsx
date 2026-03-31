@@ -7,6 +7,8 @@ import {
   OnboardingSecondaryActionButton,
   OnboardingStepHeader,
   onboardingHeaderBlockClass,
+  onboardingLinkActionClass,
+  onboardingSecondaryActionClass,
 } from "./onboarding-step-chrome";
 
 describe("onboarding step chrome actions", () => {
@@ -24,9 +26,7 @@ describe("onboarding step chrome actions", () => {
     expect(button.className).toContain(
       "focus-visible:ring-[var(--onboarding-secondary-focus-ring)]",
     );
-    expect(button.className).toContain(
-      "[text-shadow:var(--onboarding-text-shadow-muted)]",
-    );
+    expect(button.className).toContain(onboardingSecondaryActionClass);
     expect(button.className).not.toContain("-webkit-text-stroke");
     expect(button.className).not.toContain("bg-bg-accent");
     expect(button.className).not.toContain("text-muted-strong");
@@ -42,9 +42,7 @@ describe("onboarding step chrome actions", () => {
       "hover:bg-[var(--onboarding-secondary-hover-bg)]",
     );
     expect(button.className).toContain("hover:text-[var(--onboarding-link)]");
-    expect(button.className).toContain(
-      "[text-shadow:var(--onboarding-text-shadow-muted)]",
-    );
+    expect(button.className).toContain(onboardingLinkActionClass);
     expect(button.className).toContain("min-h-[44px]");
     expect(button.className).not.toContain("bg-bg-accent");
   });

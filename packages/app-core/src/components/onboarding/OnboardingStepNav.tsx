@@ -82,7 +82,8 @@ export function OnboardingStepNav() {
               subClass +=
                 " text-[var(--onboarding-nav-text-subtle,#a1a1aa)] drop-shadow-[0_1px_6px_rgba(3,5,10,0.3)] group-hover:text-[var(--onboarding-nav-text-primary,#e8e8ec)]";
             } else if (isActive) {
-              subClass += " text-accent drop-shadow-[0_1px_6px_rgba(3,5,10,0.3)]";
+              subClass +=
+                " text-accent drop-shadow-[0_1px_6px_rgba(3,5,10,0.3)]";
             } else {
               subClass += " text-[#3d4a28]";
             }
