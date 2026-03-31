@@ -9555,7 +9555,11 @@ async function handleRequest(
   // Atomically switch the active AI provider.  Clears competing credentials
   // and env vars so the runtime loads the correct plugin on restart.
   if (method === "POST" && pathname === "/api/provider/switch") {
-    const body = await readJsonBody<{ provider: string; apiKey?: string }>(
+    const body = await readJsonBody<{
+      provider: string;
+      apiKey?: string;
+      primaryModel?: string;
+    }>(
       req,
       res,
     );
