@@ -22,9 +22,11 @@ describe("brand-gold onboarding styles", () => {
       "utf8",
     );
 
-    expect(css).toContain("--onboarding-panel-bg: rgba(6, 7, 8, 0.6);");
     expect(css).toContain(
-      "--onboarding-text-primary: rgba(240, 242, 245, 0.94);",
+      "--onboarding-panel-bg: linear-gradient(180deg, #8a9a6c 0%, #4a5a2c 100%);",
+    );
+    expect(css).toContain(
+      "--onboarding-text-primary: rgba(236, 234, 243, 0.94);",
     );
     expect(css).toContain("--onboarding-text-stroke: rgba(4, 8, 14, 0.78);");
     expect(css).toContain("--onboarding-text-shadow-strong:");
@@ -37,7 +39,7 @@ describe("brand-gold onboarding styles", () => {
       "--onboarding-text-support-bg: rgba(9, 12, 18, 0.22);",
     );
     expect(css).toContain(
-      "--onboarding-secondary-hover-bg: rgba(240, 185, 11, 0.08);",
+      "--onboarding-secondary-hover-bg: rgba(122, 154, 58, 0.08);",
     );
     expect(css).not.toContain("--onboarding-text-stroke-soft:");
     expect(css).not.toContain("--onboarding-card-scrim-top:");
