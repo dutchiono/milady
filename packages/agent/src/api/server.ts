@@ -9573,6 +9573,7 @@ async function handleRequest(
       "openai-codex",
       "openai-subscription",
       "anthropic-subscription",
+      "ollama",
       "openai",
       "anthropic",
       "deepseek",
@@ -9709,6 +9710,21 @@ async function handleRequest(
       }
     };
 
+    const clearOllamaOpenAiCompat = () => {
+      delete process.env.OLLAMA_BASE_URL;
+      delete envCfg.OLLAMA_BASE_URL;
+      delete process.env.OPENAI_BASE_URL;
+      delete envCfg.OPENAI_BASE_URL;
+      delete process.env.OPENAI_SMALL_MODEL;
+      delete envCfg.OPENAI_SMALL_MODEL;
+      delete process.env.OPENAI_LARGE_MODEL;
+      delete envCfg.OPENAI_LARGE_MODEL;
+      if (process.env.OPENAI_API_KEY === "ollama") {
+        delete process.env.OPENAI_API_KEY;
+        delete envCfg.OPENAI_API_KEY;
+      }
+    };
+
     try {
       // P0 §4 — input validation for direct API key providers
       if (PROVIDER_ENV_KEYS[normalizedProvider]) {
@@ -9729,6 +9745,7 @@ async function handleRequest(
       }
 
       if (normalizedProvider === "elizacloud") {
+        clearOllamaOpenAiCompat();
         // Switching TO elizacloud for inference
         clearPiAi();
         await clearSubscriptions();
@@ -9770,6 +9787,7 @@ async function handleRequest(
           // unavailable in the coding agent settings.
         }
       } else if (normalizedProvider === "pi-ai") {
+        clearOllamaOpenAiCompat();
         // Switching TO pi-ai credentials mode
         disableCloudInference();
         await clearSubscriptions();
@@ -9790,6 +9808,7 @@ async function handleRequest(
         normalizedProvider === "openai-codex" ||
         normalizedProvider === "openai-subscription"
       ) {
+        clearOllamaOpenAiCompat();
         // Switching TO OpenAI subscription — keep cloud for RPC
         clearPiAi();
         disableCloudInference();
@@ -9816,6 +9835,7 @@ async function handleRequest(
           );
         }
       } else if (normalizedProvider === "anthropic-subscription") {
+        clearOllamaOpenAiCompat();
         // Switching TO Anthropic subscription — keep cloud for RPC
         clearPiAi();
         disableCloudInference();
@@ -9841,7 +9861,45 @@ async function handleRequest(
             `[api] Failed to apply Anthropic subscription creds: ${err instanceof Error ? err.message : err}`,
           );
         }
+      } else if (normalizedProvider === "ollama") {
+        clearPiAi();
+        disableCloudInference();
+        await clearSubscriptions();
+        clearSubscriptionProviderConfig(config);
+        clearOtherApiKeys();
+
+        const rawBaseUrl =
+          typeof body.apiKey === "string" && body.apiKey.trim().length > 0
+            ? body.apiKey.trim()
+            : "http://localhost:11434";
+        const normalizedBaseUrl = rawBaseUrl
+          .replace(/\/+$/, "")
+          .replace(/\/api$/, "")
+          .replace(/\/v1$/, "");
+        const primaryModel =
+          typeof body.primaryModel === "string" && body.primaryModel.trim()
+            ? body.primaryModel.trim()
+            : "gemma3:latest";
+
+        process.env.OLLAMA_BASE_URL = normalizedBaseUrl;
+        envCfg.OLLAMA_BASE_URL = normalizedBaseUrl;
+        process.env.OPENAI_BASE_URL = `${normalizedBaseUrl}/v1`;
+        envCfg.OPENAI_BASE_URL = `${normalizedBaseUrl}/v1`;
+        process.env.OPENAI_API_KEY = "ollama";
+        envCfg.OPENAI_API_KEY = "ollama";
+        process.env.OPENAI_SMALL_MODEL = primaryModel;
+        envCfg.OPENAI_SMALL_MODEL = primaryModel;
+        process.env.OPENAI_LARGE_MODEL = primaryModel;
+        envCfg.OPENAI_LARGE_MODEL = primaryModel;
+
+        config.agents ??= {};
+        config.agents.defaults ??= {};
+        config.agents.defaults.model = {
+          ...config.agents.defaults.model,
+          primary: primaryModel,
+        };
       } else if (PROVIDER_ENV_KEYS[normalizedProvider]) {
+        clearOllamaOpenAiCompat();
         // Switching TO a direct API key provider — keep cloud for RPC
         clearPiAi();
         disableCloudInference();
@@ -10464,6 +10522,51 @@ async function handleRequest(
         defaults.model = modelConfig;
       } else {
         clearPiAiFlag();
+      }
+
+      if (runMode === "local" && providerId === "ollama") {
+        const rawBaseUrl =
+          typeof body.providerApiKey === "string" &&
+          body.providerApiKey.trim().length > 0
+            ? body.providerApiKey.trim()
+            : "http://localhost:11434";
+        const normalizedBaseUrl = rawBaseUrl
+          .replace(/\/+$/, "")
+          .replace(/\/api$/, "")
+          .replace(/\/v1$/, "");
+        const primaryModel =
+          typeof body.primaryModel === "string" && body.primaryModel.trim()
+            ? body.primaryModel.trim()
+            : "gemma3:latest";
+
+        vars.OLLAMA_BASE_URL = normalizedBaseUrl;
+        vars.OPENAI_BASE_URL = `${normalizedBaseUrl}/v1`;
+        vars.OPENAI_API_KEY = "ollama";
+        vars.OPENAI_SMALL_MODEL = primaryModel;
+        vars.OPENAI_LARGE_MODEL = primaryModel;
+
+        (config.env as Record<string, string>).OLLAMA_BASE_URL =
+          normalizedBaseUrl;
+        (config.env as Record<string, string>).OPENAI_BASE_URL =
+          `${normalizedBaseUrl}/v1`;
+        (config.env as Record<string, string>).OPENAI_API_KEY = "ollama";
+        (config.env as Record<string, string>).OPENAI_SMALL_MODEL =
+          primaryModel;
+        (config.env as Record<string, string>).OPENAI_LARGE_MODEL =
+          primaryModel;
+
+        process.env.OLLAMA_BASE_URL = normalizedBaseUrl;
+        process.env.OPENAI_BASE_URL = `${normalizedBaseUrl}/v1`;
+        process.env.OPENAI_API_KEY = "ollama";
+        process.env.OPENAI_SMALL_MODEL = primaryModel;
+        process.env.OPENAI_LARGE_MODEL = primaryModel;
+
+        if (!config.agents) config.agents = {};
+        if (!config.agents.defaults) config.agents.defaults = {};
+        const defaults = config.agents.defaults as Record<string, unknown>;
+        const modelConfig = (defaults.model ?? {}) as Record<string, unknown>;
+        modelConfig.primary = primaryModel;
+        defaults.model = modelConfig;
       }
 
       // API-key providers (envKey backed)
