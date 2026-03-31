@@ -206,6 +206,12 @@ vi.mock("@miladyai/ui", () => {
       React.createElement("button", { type: "button", ...props }, children),
     Input: (props: React.InputHTMLAttributes<HTMLInputElement>) =>
       React.createElement("input", props),
+    ConfirmDialog: passthrough,
+    Dialog: passthrough,
+    DialogContent: passthrough,
+    DialogHeader: passthrough,
+    DialogTitle: passthrough,
+    Label: passthrough,
     Select: passthrough,
     SelectContent: passthrough,
     SelectItem: ({
@@ -224,6 +230,23 @@ vi.mock("@miladyai/ui", () => {
     TabsTrigger: passthrough,
     TabsContent: passthrough,
     Badge: passthrough,
+    Slider: (props: Record<string, unknown>) =>
+      React.createElement("input", { type: "range", ...props }),
+    Spinner: passthrough,
+    Switch: ({
+      checked,
+      onCheckedChange,
+      ...props
+    }: {
+      checked?: boolean;
+      onCheckedChange?: (value: boolean) => void;
+    } & Record<string, unknown>) =>
+      React.createElement("button", {
+        type: "button",
+        "data-checked": checked,
+        onClick: () => onCheckedChange?.(!checked),
+        ...props,
+      }),
   };
 });
 
