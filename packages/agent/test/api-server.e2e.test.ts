@@ -4667,6 +4667,36 @@ describe("API Server E2E (no runtime)", () => {
         }
       }
     });
+
+    it("POST /api/onboarding routes Ollama through the OpenAI-compatible endpoint", async () => {
+      const res = await req(port, "POST", "/api/onboarding", {
+        name: "OllamaAgent",
+        provider: "ollama",
+        providerApiKey: "http://localhost:11434/api",
+        primaryModel: "qwen3:8b",
+        runMode: "local",
+      });
+      expect(res.status).toBe(200);
+
+      expect(process.env.OLLAMA_BASE_URL).toMatch(
+        /^http:\/\/(?:localhost|127\.0\.0\.1):11434$/,
+      );
+      expect(process.env.OPENAI_BASE_URL).toMatch(
+        /^http:\/\/(?:localhost|127\.0\.0\.1):11434\/v1$/,
+      );
+      expect(process.env.OPENAI_API_KEY).toBe("ollama");
+      expect(process.env.OPENAI_SMALL_MODEL).toBe("qwen3:8b");
+      expect(process.env.OPENAI_LARGE_MODEL).toBe("qwen3:8b");
+
+      const cfg = await req(port, "GET", "/api/config");
+      expect(
+        (
+          cfg.data as {
+            agents?: { defaults?: { model?: { primary?: string } } };
+          }
+        ).agents?.defaults?.model?.primary,
+      ).toBe("qwen3:8b");
+    });
   });
 
   // -- Config --

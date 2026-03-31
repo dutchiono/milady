@@ -17,6 +17,7 @@ import {
 } from "../contracts/onboarding";
 
 const REDACTED_SECRET = "[REDACTED]";
+const DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434";
 
 type MutableElizaConfig = Partial<ElizaConfig> & {
   cloud?: Record<string, unknown>;
@@ -133,6 +134,47 @@ function readEnvString(
   return readString(vars, key) ?? readString(env, key);
 }
 
+function normalizeOllamaBaseUrl(value: string | undefined): string {
+  const trimmed = trimToUndefined(value) ?? DEFAULT_OLLAMA_BASE_URL;
+  const withoutTrailingSlash = trimmed.replace(/\/+$/, "");
+  if (withoutTrailingSlash.endsWith("/api")) {
+    return withoutTrailingSlash.slice(0, -4);
+  }
+  if (withoutTrailingSlash.endsWith("/v1")) {
+    return withoutTrailingSlash.slice(0, -3);
+  }
+  return withoutTrailingSlash;
+}
+
+function buildOllamaOpenAiBaseUrl(baseUrl: string): string {
+  const normalized = normalizeOllamaBaseUrl(baseUrl);
+  return `${normalized}/v1`;
+}
+
+function isOllamaOpenAiCompatConfigured(
+  config: Record<string, unknown> | null | undefined,
+): boolean {
+  return (
+    readEnvString(config, "OPENAI_API_KEY") === "ollama" &&
+    Boolean(readEnvString(config, "OPENAI_BASE_URL"))
+  );
+}
+
+function clearOllamaOpenAiCompatConfig(config: MutableElizaConfig): void {
+  clearPersistedEnvValue(config, "OLLAMA_BASE_URL");
+  clearPersistedEnvValue(config, "OPENAI_BASE_URL");
+  clearPersistedEnvValue(config, "OPENAI_SMALL_MODEL");
+  clearPersistedEnvValue(config, "OPENAI_LARGE_MODEL");
+
+  if (
+    readEnvString(config, "OPENAI_API_KEY") === "ollama" ||
+    process.env.OPENAI_API_KEY === "ollama"
+  ) {
+    clearPersistedEnvValue(config, "OPENAI_API_KEY");
+    delete process.env.OPENAI_API_KEY;
+  }
+}
+
 function resolveConfiguredLocalProvider(
   config: Record<string, unknown> | null | undefined,
 ): OnboardingLocalProviderId | null {
@@ -149,9 +191,17 @@ function resolveConfiguredLocalProvider(
     return storedSubscriptionProvider;
   }
 
+  if (readEnvString(config, "OLLAMA_BASE_URL")) {
+    return "ollama";
+  }
+
   const piAiEnabled = readEnvString(config, "ELIZA_USE_PI_AI");
   if (piAiEnabled && piAiEnabled !== "0" && piAiEnabled !== "false") {
     return "pi-ai";
+  }
+
+  if (isOllamaOpenAiCompatConfigured(config)) {
+    return "ollama";
   }
 
   const localProvider = (
@@ -263,6 +313,10 @@ export function clearPersistedOnboardingConfig(
       clearPersistedEnvValue(config, provider.envKey);
     }
   }
+  clearPersistedEnvValue(config, "OLLAMA_BASE_URL");
+  clearPersistedEnvValue(config, "OPENAI_BASE_URL");
+  clearPersistedEnvValue(config, "OPENAI_SMALL_MODEL");
+  clearPersistedEnvValue(config, "OPENAI_LARGE_MODEL");
   clearPersistedEnvValue(config, "ELIZA_USE_PI_AI");
 
   delete process.env.ELIZAOS_CLOUD_API_KEY;
@@ -520,10 +574,26 @@ export async function applyOnboardingConnectionConfig(
 
   clearSubscriptionProviderConfig(config);
 
+  if (normalizedProvider !== "ollama") {
+    clearOllamaOpenAiCompatConfig(config);
+  }
+
   if (normalizedProvider === "pi-ai") {
     setEnvValue(config, "ELIZA_USE_PI_AI", "1");
   } else {
     clearPiAiFlag(config);
+  }
+
+  if (normalizedProvider === "ollama") {
+    const baseUrl = normalizeOllamaBaseUrl(connection.apiKey);
+    const model = trimToUndefined(connection.primaryModel) ?? "gemma3:latest";
+    setEnvValue(config, "OLLAMA_BASE_URL", baseUrl);
+    setEnvValue(config, "OPENAI_BASE_URL", buildOllamaOpenAiBaseUrl(baseUrl));
+    setEnvValue(config, "OPENAI_API_KEY", "ollama");
+    setEnvValue(config, "OPENAI_SMALL_MODEL", model);
+    setEnvValue(config, "OPENAI_LARGE_MODEL", model);
+    setPrimaryModel(config, model);
+    return;
   }
 
   const providerOption = getOnboardingProviderOption(normalizedProvider);

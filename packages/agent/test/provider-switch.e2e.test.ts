@@ -167,6 +167,23 @@ describe("POST /api/provider/switch", () => {
         expect(data.provider).toBe(provider);
       });
     }
+
+    it("routes Ollama through OpenAI-compatible env vars", async () => {
+      const { status, data } = await req(port, "POST", "/api/provider/switch", {
+        provider: "ollama",
+        apiKey: "http://localhost:11434/api",
+        primaryModel: "qwen3:8b",
+      });
+
+      expect(status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.provider).toBe("ollama");
+      expect(process.env.OLLAMA_BASE_URL).toBe("http://localhost:11434");
+      expect(process.env.OPENAI_BASE_URL).toBe("http://localhost:11434/v1");
+      expect(process.env.OPENAI_API_KEY).toBe("ollama");
+      expect(process.env.OPENAI_SMALL_MODEL).toBe("qwen3:8b");
+      expect(process.env.OPENAI_LARGE_MODEL).toBe("qwen3:8b");
+    });
   });
 
   // -- Credential clearing --
@@ -195,9 +212,7 @@ describe("POST /api/provider/switch", () => {
         provider: "google",
         apiKey: "AIza-test-key",
       });
-      expect(process.env.GOOGLE_GENERATIVE_AI_API_KEY).toBe(
-        "AIza-test-key",
-      );
+      expect(process.env.GOOGLE_GENERATIVE_AI_API_KEY).toBe("AIza-test-key");
 
       // Switch to cloud
       await req(port, "POST", "/api/provider/switch", {
