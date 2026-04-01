@@ -1,0 +1,1883 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Milady QA Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --surface3: #222233;
+    --border: #2a2a3d;
+    --border-glow: #4a3a6a;
+    --text: #e0dde8;
+    --text-dim: #8888a0;
+    --text-faint: #555568;
+    --accent: #c084fc;
+    --accent-dim: #9055d4;
+    --accent-glow: rgba(192, 132, 252, 0.15);
+    --pink: #f472b6;
+    --pink-dim: #db2777;
+    --pink-glow: rgba(244, 114, 182, 0.15);
+    --green: #4ade80;
+    --green-dim: #16a34a;
+    --green-glow: rgba(74, 222, 128, 0.1);
+    --red: #f87171;
+    --red-dim: #dc2626;
+    --red-glow: rgba(248, 113, 113, 0.1);
+    --yellow: #facc15;
+    --yellow-glow: rgba(250, 204, 21, 0.1);
+    --blue: #60a5fa;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(192, 132, 252, 0.08), transparent),
+      radial-gradient(ellipse 60% 40% at 80% 100%, rgba(244, 114, 182, 0.05), transparent);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { max-width: 1400px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+  /* Header */
+  header {
+    padding: 40px 0 20px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 32px;
+  }
+  header h1 {
+    font-size: 2.4rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--pink));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.02em;
+  }
+  header p { color: var(--text-dim); margin-top: 8px; font-size: 1rem; }
+
+  /* Auth screen */
+  .auth-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    text-align: center;
+  }
+  .auth-screen .auth-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 48px 40px;
+    max-width: 460px;
+    width: 100%;
+  }
+  .auth-screen .auth-box h2 {
+    font-size: 1.4rem;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  .auth-screen .auth-box p {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    margin-bottom: 28px;
+    line-height: 1.5;
+  }
+  .btn-github {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 32px;
+    background: #fff;
+    color: #000;
+    border: none;
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .btn-github:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(255,255,255,0.1);
+  }
+  .btn-github svg { width: 22px; height: 22px; }
+  .auth-screen .auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 24px 0;
+    color: var(--text-faint);
+    font-size: 0.8rem;
+  }
+  .auth-screen .auth-divider::before,
+  .auth-screen .auth-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .auth-screen .pat-section { text-align: left; }
+  .auth-screen .pat-section label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .auth-screen .pat-section input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    outline: none;
+    margin-bottom: 12px;
+  }
+  .auth-screen .pat-section input:focus { border-color: var(--accent); }
+  .auth-screen .pat-section .pat-help {
+    font-size: 0.75rem;
+    color: var(--text-faint);
+    line-height: 1.5;
+  }
+  .auth-screen .pat-section .pat-help a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .auth-screen .pat-section .pat-help a:hover { text-decoration: underline; }
+  .btn-pat {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 24px;
+    background: var(--accent-glow);
+    color: var(--accent);
+    border: 1px solid rgba(192, 132, 252, 0.3);
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 8px;
+  }
+  .btn-pat:hover { background: rgba(192, 132, 252, 0.25); border-color: var(--accent); }
+  .btn-pat:disabled { opacity: 0.5; cursor: not-allowed; }
+  .auth-error {
+    color: var(--red);
+    font-size: 0.85rem;
+    margin-top: 10px;
+    display: none;
+  }
+
+  /* User bar (when signed in) */
+  .user-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .user-bar .user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid var(--accent);
+  }
+  .user-bar .user-info { flex: 1; min-width: 0; }
+  .user-bar .user-name { font-weight: 600; font-size: 0.95rem; }
+  .user-bar .user-login { font-size: 0.8rem; color: var(--text-dim); }
+  .user-bar .claim-count {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    padding: 6px 14px;
+    background: var(--surface2);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .user-bar .claim-count strong { color: var(--pink); }
+  .btn-signout {
+    padding: 7px 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-signout:hover { border-color: var(--red); color: var(--red); }
+
+  /* Sync status */
+  .sync-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 24px;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+  .sync-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    flex-shrink: 0;
+  }
+  .sync-dot.error { background: var(--red); }
+  .sync-dot.loading { background: var(--yellow); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .sync-status-bar .spacer { flex: 1; }
+
+  .setup-banner {
+    margin-bottom: 24px;
+    padding: 16px 18px;
+    background: linear-gradient(135deg, rgba(192, 132, 252, 0.12), rgba(244, 114, 182, 0.08));
+    border: 1px solid rgba(192, 132, 252, 0.25);
+    border-radius: 14px;
+    display: grid;
+    gap: 8px;
+  }
+  .setup-banner h2 {
+    font-size: 1rem;
+    color: var(--text);
+  }
+  .setup-banner p,
+  .setup-banner li {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+  .setup-banner ul {
+    padding-left: 18px;
+    display: grid;
+    gap: 4px;
+  }
+  .setup-banner code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+  }
+
+  /* Stats bar */
+  .stats-bar {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+  .stat-card {
+    flex: 1;
+    min-width: 140px;
+    padding: 16px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    text-align: center;
+  }
+  .stat-card .stat-num {
+    font-size: 1.8rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .stat-card .stat-label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-top: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .stat-card.total .stat-num { color: var(--accent); }
+  .stat-card.claimed .stat-num { color: var(--yellow); }
+  .stat-card.passed .stat-num { color: var(--green); }
+  .stat-card.failed .stat-num { color: var(--red); }
+  .stat-card.unclaimed .stat-num { color: var(--text-dim); }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 10px 20px;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .tab .badge {
+    display: inline-block;
+    background: var(--surface3);
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    padding: 2px 7px;
+    border-radius: 10px;
+    margin-left: 6px;
+    font-weight: 600;
+  }
+
+  /* Section */
+  .section { display: none; }
+  .section.active { display: block; }
+  .section-desc {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+
+  /* Filter bar */
+  .filter-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .filter-bar input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.85rem;
+    outline: none;
+    flex: 1;
+    min-width: 200px;
+  }
+  .filter-bar input:focus { border-color: var(--accent); }
+  .filter-btn {
+    padding: 7px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .filter-btn:hover { border-color: var(--accent); color: var(--text); }
+  .filter-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+
+  /* Cards grid */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 16px; margin-bottom: 40px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .card:hover { border-color: var(--border-glow); }
+  .card.status-claimed { border-left: 3px solid var(--yellow); }
+  .card.status-passed { border-left: 3px solid var(--green); }
+  .card.status-failed { border-left: 3px solid var(--red); }
+
+  .card-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+  .card-icon {
+    width: 36px; height: 36px;
+    background: var(--surface3);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+  .card-title-area { flex: 1; min-width: 0; }
+  .card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .platform-badge {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .platform-badge.mac { background: rgba(96, 165, 250, 0.15); color: var(--blue); }
+  .platform-badge.win { background: rgba(192, 132, 252, 0.15); color: var(--accent); }
+  .card-subtitle { font-size: 0.8rem; color: var(--text-dim); margin-top: 2px; }
+
+  /* Status badge */
+  .status-badge {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+  .status-badge.unclaimed { background: var(--surface3); color: var(--text-dim); }
+  .status-badge.claimed { background: var(--yellow-glow); color: var(--yellow); border: 1px solid rgba(250, 204, 21, 0.2); }
+  .status-badge.passed { background: var(--green-glow); color: var(--green); border: 1px solid rgba(74, 222, 128, 0.2); }
+  .status-badge.failed { background: var(--red-glow); color: var(--red); border: 1px solid rgba(248, 113, 113, 0.2); }
+
+  .card-body { margin-top: 12px; }
+
+  /* Checklist */
+  .checklist { list-style: none; margin: 8px 0; }
+  .checklist li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+  }
+  .checklist li:last-child { border-bottom: none; }
+  .checklist li.checked { color: var(--green); text-decoration: line-through; text-decoration-color: var(--green-dim); }
+  .checklist input[type="checkbox"] {
+    appearance: none;
+    width: 18px; height: 18px;
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition: all 0.2s;
+  }
+  .checklist input[type="checkbox"]:checked {
+    background: var(--green);
+    border-color: var(--green);
+  }
+  .checklist input[type="checkbox"]:checked::after {
+    content: '\2713';
+    position: absolute;
+    top: -1px; left: 2px;
+    font-size: 13px;
+    color: var(--bg);
+    font-weight: 700;
+  }
+  .checklist input[type="checkbox"]:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Notes area */
+  .notes-area { margin-top: 10px; }
+  .notes-area textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    resize: vertical;
+    min-height: 60px;
+    outline: none;
+  }
+  .notes-area textarea:focus { border-color: var(--accent); }
+  .notes-area textarea:disabled { opacity: 0.5; }
+  .notes-area label { font-size: 0.75rem; color: var(--text-dim); margin-bottom: 4px; display: block; }
+
+  .report-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .report-field label,
+  .report-summary .summary-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .report-field input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    outline: none;
+  }
+  .report-field input:focus { border-color: var(--accent); }
+  .report-field input:disabled { opacity: 0.5; }
+  .report-helper {
+    margin-top: 8px;
+    font-size: 0.75rem;
+    color: var(--text-faint);
+    line-height: 1.5;
+  }
+  .report-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+  .report-summary .summary-value {
+    font-size: 0.8rem;
+    color: var(--text);
+    word-break: break-word;
+  }
+
+  /* Card actions */
+  .card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .claimed-by { font-size: 0.8rem; color: var(--text-dim); }
+  .claimed-by strong { color: var(--pink); }
+  .claimed-by img {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    vertical-align: middle;
+    margin-right: 4px;
+  }
+
+  /* Buttons */
+  .btn {
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-claim {
+    background: var(--pink-glow);
+    color: var(--pink);
+    border-color: rgba(244, 114, 182, 0.3);
+  }
+  .btn-claim:hover { background: rgba(244, 114, 182, 0.25); border-color: var(--pink); }
+  .btn-release {
+    background: var(--surface2);
+    color: var(--text-dim);
+  }
+  .btn-release:hover { border-color: var(--red); color: var(--red); }
+  .btn-pass {
+    background: var(--green-glow);
+    color: var(--green);
+    border-color: rgba(74, 222, 128, 0.3);
+  }
+  .btn-pass:hover { background: rgba(74, 222, 128, 0.25); border-color: var(--green); }
+  .btn-fail {
+    background: var(--red-glow);
+    color: var(--red);
+    border-color: rgba(248, 113, 113, 0.3);
+  }
+  .btn-fail:hover { background: rgba(248, 113, 113, 0.25); border-color: var(--red); }
+  .btn-sync {
+    background: var(--accent-glow);
+    color: var(--accent);
+    border-color: rgba(192, 132, 252, 0.3);
+  }
+  .btn-sync:hover { background: rgba(192, 132, 252, 0.25); border-color: var(--accent); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Progress bar */
+  .progress-bar-container {
+    width: 100%;
+    height: 6px;
+    background: var(--surface3);
+    border-radius: 3px;
+    margin: 16px 0 8px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--pink));
+    transition: width 0.5s ease;
+  }
+  .progress-label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-align: right;
+  }
+
+  /* Config modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    max-width: 520px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .modal h3 { font-size: 1.1rem; margin-bottom: 16px; color: var(--accent); }
+  .modal .field { margin-bottom: 14px; }
+  .modal .field label { display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px; }
+  .modal .field input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.9rem;
+    outline: none;
+  }
+  .modal .field input:focus { border-color: var(--accent); }
+  .modal-actions { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .cards { grid-template-columns: 1fr; }
+    header h1 { font-size: 1.8rem; }
+    .stats-bar { gap: 8px; }
+    .stat-card { min-width: 100px; padding: 12px; }
+    .stat-card .stat-num { font-size: 1.4rem; }
+    .report-grid,
+    .report-summary { grid-template-columns: 1fr; }
+  }
+
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border); }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .card { animation: fadeIn 0.3s ease; }
+
+  .hidden { display: none !important; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    z-index: 200;
+    animation: fadeIn 0.3s ease;
+    max-width: 400px;
+  }
+  .toast.success { background: var(--green-glow); color: var(--green); border: 1px solid rgba(74, 222, 128, 0.3); }
+  .toast.error { background: var(--red-glow); color: var(--red); border: 1px solid rgba(248, 113, 113, 0.3); }
+  .toast.info { background: var(--accent-glow); color: var(--accent); border: 1px solid rgba(192, 132, 252, 0.3); }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Milady QA Tracker</h1>
+    <p>Manual verification tracker for connectors, plugins, promo videos &amp; tutorials</p>
+  </header>
+
+  <!-- â•â•â• AUTH SCREEN (shown when not signed in) â•â•â• -->
+  <div id="auth-screen" class="auth-screen">
+    <div class="auth-box">
+      <h2>Sign in to continue</h2>
+      <p>Sign in with GitHub so we know who you are. Use the GitHub button for normal access on a public repo. No cookie licking allowed.</p>
+
+      <button class="btn-github" id="btn-oauth" onclick="startOAuth()">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        Sign in with GitHub
+      </button>
+
+      <div class="auth-divider">fallback only</div>
+
+      <div class="pat-section">
+        <label for="pat-input">Personal Access Token (fallback)</label>
+        <input type="password" id="pat-input" placeholder="ghp_..." spellcheck="false" onkeydown="if(event.key==='Enter') signInWithPAT()" />
+        <button class="btn-pat" onclick="signInWithPAT()">Verify &amp; Sign In</button>
+        <p class="pat-help">
+          Only use this if OAuth is not configured yet. For a public repo, the token only needs <strong>public_repo</strong> scope at
+          <a href="https://github.com/settings/tokens/new?scopes=public_repo&description=Milady+QA+Tracker" target="_blank">github.com/settings/tokens</a>.
+          Your token stays in your browser and is only sent to the GitHub API.
+        </p>
+        <div class="auth-error" id="auth-error"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- â•â•â• MAIN APP (shown after sign-in) â•â•â• -->
+  <div id="main-app" class="hidden">
+
+    <div class="setup-banner">
+      <h2>How this tracker works</h2>
+      <p>One human or agent can hold one active claim at a time. To mark a task as passed, every checklist item must be complete and the report must include the tested branch/commit/PR plus the app version or build.</p>
+      <ul>
+        <li>Use <code>gh-pages</code> for the published page and <code>qa-tracker/state.json</code> for shared state unless you have a separate data branch.</li>
+        <li>Failures should include logs or reproduction notes so backend devs can pick them up without re-triaging from scratch.</li>
+        <li>For a public repo, use the GitHub OAuth button as the normal sign-in path. PAT remains as fallback only.</li>
+      </ul>
+    </div>
+
+    <!-- User bar -->
+    <div class="user-bar">
+      <img class="user-avatar" id="user-avatar" src="" alt="" />
+      <div class="user-info">
+        <div class="user-name" id="user-name"></div>
+        <div class="user-login" id="user-login"></div>
+      </div>
+      <div class="claim-count">Active claim: <strong id="my-claim-count">0</strong> / 1</div>
+      <button class="btn-signout" onclick="signOut()">Sign Out</button>
+    </div>
+
+    <!-- Sync status -->
+    <div class="sync-status-bar">
+      <div class="sync-dot" id="sync-dot"></div>
+      <span id="sync-text">Synced</span>
+      <span class="spacer"></span>
+      <button class="btn btn-sync" onclick="showConfigModal()">Repo Settings</button>
+      <button class="btn btn-sync" onclick="pullState()">Pull</button>
+      <button class="btn btn-sync" onclick="pushState()">Push</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-bar">
+      <div class="stat-card total"><div class="stat-num" id="stat-total">0</div><div class="stat-label">Total Tasks</div></div>
+      <div class="stat-card unclaimed"><div class="stat-num" id="stat-unclaimed">0</div><div class="stat-label">Unclaimed</div></div>
+      <div class="stat-card claimed"><div class="stat-num" id="stat-claimed">0</div><div class="stat-label">In Progress</div></div>
+      <div class="stat-card passed"><div class="stat-num" id="stat-passed">0</div><div class="stat-label">Passed</div></div>
+      <div class="stat-card failed"><div class="stat-num" id="stat-failed">0</div><div class="stat-label">Failed</div></div>
+    </div>
+
+    <div class="progress-bar-container"><div class="progress-bar" id="progress-bar"></div></div>
+    <div class="progress-label" id="progress-label">0% verified</div>
+
+    <!-- Tabs -->
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-tab="connectors">Connectors <span class="badge" id="badge-connectors">0</span></button>
+      <button class="tab" data-tab="plugins-ai">AI Providers <span class="badge" id="badge-plugins-ai">0</span></button>
+      <button class="tab" data-tab="plugins-feature">Features <span class="badge" id="badge-plugins-feature">0</span></button>
+      <button class="tab" data-tab="plugins-db">Database <span class="badge" id="badge-plugins-db">0</span></button>
+      <button class="tab" data-tab="plugins-app">Apps <span class="badge" id="badge-plugins-app">0</span></button>
+      <button class="tab" data-tab="plugins-stream">Streaming <span class="badge" id="badge-plugins-stream">0</span></button>
+      <button class="tab" data-tab="milady-plugins">Milady <span class="badge" id="badge-milady-plugins">0</span></button>
+      <button class="tab" data-tab="videos">Videos <span class="badge" id="badge-videos">0</span></button>
+      <button class="tab" data-tab="tutorials">Tutorials <span class="badge" id="badge-tutorials">0</span></button>
+    </div>
+
+    <!-- Sections (one per tab) -->
+    <div class="section active" id="section-connectors">
+      <p class="section-desc">Verify each connector end-to-end on both Mac and Windows. Test connection, send/receive, reconnection, and platform-specific features.</p>
+      <div class="filter-bar">
+        <input type="text" id="filter-connectors" placeholder="Search connectors..." oninput="filterCards('connectors')" />
+        <button class="filter-btn active" onclick="setStatusFilter('connectors','all',this)">All</button>
+        <button class="filter-btn" onclick="setStatusFilter('connectors','unclaimed',this)">Unclaimed</button>
+        <button class="filter-btn" onclick="setStatusFilter('connectors','claimed',this)">In Progress</button>
+        <button class="filter-btn" onclick="setStatusFilter('connectors','passed',this)">Passed</button>
+        <button class="filter-btn" onclick="setStatusFilter('connectors','failed',this)">Failed</button>
+      </div>
+      <div class="cards" id="cards-connectors"></div>
+    </div>
+
+    <div class="section" id="section-plugins-ai">
+      <p class="section-desc">Verify AI model providers. Test chat completions, embeddings, and provider-specific features.</p>
+      <div class="filter-bar">
+        <input type="text" id="filter-plugins-ai" placeholder="Search AI providers..." oninput="filterCards('plugins-ai')" />
+        <button class="filter-btn active" onclick="setStatusFilter('plugins-ai','all',this)">All</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-ai','unclaimed',this)">Unclaimed</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-ai','claimed',this)">In Progress</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-ai','passed',this)">Passed</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-ai','failed',this)">Failed</button>
+      </div>
+      <div class="cards" id="cards-plugins-ai"></div>
+    </div>
+
+    <div class="section" id="section-plugins-feature">
+      <p class="section-desc">Verify feature plugins. Test core functionality, edge cases, and runtime integration.</p>
+      <div class="filter-bar">
+        <input type="text" id="filter-plugins-feature" placeholder="Search feature plugins..." oninput="filterCards('plugins-feature')" />
+        <button class="filter-btn active" onclick="setStatusFilter('plugins-feature','all',this)">All</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-feature','unclaimed',this)">Unclaimed</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-feature','claimed',this)">In Progress</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-feature','passed',this)">Passed</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-feature','failed',this)">Failed</button>
+      </div>
+      <div class="cards" id="cards-plugins-feature"></div>
+    </div>
+
+    <div class="section" id="section-plugins-db">
+      <p class="section-desc">Verify database plugins. Test CRUD, persistence, and migration handling.</p>
+      <div class="filter-bar">
+        <input type="text" id="filter-plugins-db" placeholder="Search..." oninput="filterCards('plugins-db')" />
+        <button class="filter-btn active" onclick="setStatusFilter('plugins-db','all',this)">All</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-db','unclaimed',this)">Unclaimed</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-db','claimed',this)">In Progress</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-db','passed',this)">Passed</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-db','failed',this)">Failed</button>
+      </div>
+      <div class="cards" id="cards-plugins-db"></div>
+    </div>
+
+    <div class="section" id="section-plugins-app">
+      <p class="section-desc">Verify app plugins. Test full application features and integration.</p>
+      <div class="filter-bar">
+        <input type="text" id="filter-plugins-app" placeholder="Search..." oninput="filterCards('plugins-app')" />
+        <button class="filter-btn active" onclick="setStatusFilter('plugins-app','all',this)">All</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-app','unclaimed',this)">Unclaimed</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-app','claimed',this)">In Progress</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-app','passed',this)">Passed</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-app','failed',this)">Failed</button>
+      </div>
+      <div class="cards" id="cards-plugins-app"></div>
+    </div>
+
+    <div class="section" id="section-plugins-stream">
+      <p class="section-desc">Verify streaming plugins. Test stream setup, stability, and platform integration.</p>
+      <div class="filter-bar">
+        <input type="text" id="filter-plugins-stream" placeholder="Search..." oninput="filterCards('plugins-stream')" />
+        <button class="filter-btn active" onclick="setStatusFilter('plugins-stream','all',this)">All</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-stream','unclaimed',this)">Unclaimed</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-stream','claimed',this)">In Progress</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-stream','passed',this)">Passed</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-stream','failed',this)">Failed</button>
+      </div>
+      <div class="cards" id="cards-plugins-stream"></div>
+    </div>
+
+    <div class="section" id="section-milady-plugins">
+      <p class="section-desc">Verify Milady-specific plugins and Capacitor mobile plugins.</p>
+      <div class="filter-bar">
+        <input type="text" id="filter-milady-plugins" placeholder="Search..." oninput="filterCards('milady-plugins')" />
+        <button class="filter-btn active" onclick="setStatusFilter('milady-plugins','all',this)">All</button>
+        <button class="filter-btn" onclick="setStatusFilter('milady-plugins','unclaimed',this)">Unclaimed</button>
+        <button class="filter-btn" onclick="setStatusFilter('milady-plugins','claimed',this)">In Progress</button>
+        <button class="filter-btn" onclick="setStatusFilter('milady-plugins','passed',this)">Passed</button>
+        <button class="filter-btn" onclick="setStatusFilter('milady-plugins','failed',this)">Failed</button>
+      </div>
+      <div class="cards" id="cards-milady-plugins"></div>
+    </div>
+
+    <div class="section" id="section-videos">
+      <p class="section-desc">Short promo videos showcasing Milady's core features. Simple, visual, showing how easy Milady is to use.</p>
+      <div class="filter-bar">
+        <input type="text" id="filter-videos" placeholder="Search video tasks..." oninput="filterCards('videos')" />
+        <button class="filter-btn active" onclick="setStatusFilter('videos','all',this)">All</button>
+        <button class="filter-btn" onclick="setStatusFilter('videos','unclaimed',this)">Unclaimed</button>
+        <button class="filter-btn" onclick="setStatusFilter('videos','claimed',this)">In Progress</button>
+        <button class="filter-btn" onclick="setStatusFilter('videos','passed',this)">Passed</button>
+      </div>
+      <div class="cards" id="cards-videos"></div>
+    </div>
+
+    <div class="section" id="section-tutorials">
+      <p class="section-desc">Detailed step-by-step tutorials for connecting Milady to each platform. Written guides with screenshots.</p>
+      <div class="filter-bar">
+        <input type="text" id="filter-tutorials" placeholder="Search tutorials..." oninput="filterCards('tutorials')" />
+        <button class="filter-btn active" onclick="setStatusFilter('tutorials','all',this)">All</button>
+        <button class="filter-btn" onclick="setStatusFilter('tutorials','unclaimed',this)">Unclaimed</button>
+        <button class="filter-btn" onclick="setStatusFilter('tutorials','claimed',this)">In Progress</button>
+        <button class="filter-btn" onclick="setStatusFilter('tutorials','passed',this)">Passed</button>
+      </div>
+      <div class="cards" id="cards-tutorials"></div>
+    </div>
+
+  </div><!-- /main-app -->
+</div>
+
+<!-- Config Modal -->
+<div class="modal-overlay" id="config-modal">
+  <div class="modal">
+    <h3>Repository Settings</h3>
+    <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:16px;">
+      QA state is stored as a JSON file in your GitHub repo. The default Pages publish path for this tracker is <strong>qa-tracker/index.html</strong> and the shared tracker data file is <strong>qa-tracker/state.json</strong>.
+    </p>
+    <div class="field">
+      <label>Repository (owner/repo)</label>
+      <input type="text" id="cfg-repo" placeholder="miladyai/milady" />
+    </div>
+    <div class="field">
+      <label>Branch</label>
+      <input type="text" id="cfg-branch" value="gh-pages" />
+    </div>
+    <div class="field">
+      <label>State file path</label>
+      <input type="text" id="cfg-path" value="qa-tracker/state.json" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-release" onclick="closeConfigModal()">Cancel</button>
+      <button class="btn btn-sync" onclick="saveConfig()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// CONFIGURATION â€” set your GitHub OAuth App client ID here.
+// Create one at https://github.com/settings/applications/new
+//   - Homepage URL: your GitHub Pages URL
+//   - Callback URL: your GitHub Pages URL (same page)
+// Then deploy the Cloudflare Worker (see oauth-worker.js) and set its URL.
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+const OAUTH_CONFIG = {
+  clientId: '',          // Your GitHub OAuth App client ID
+  workerUrl: '',         // Your Cloudflare Worker URL for token exchange
+  scope: 'public_repo',
+};
+
+// â”€â”€â”€ DATA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+const CONNECTORS = [
+  { id: 'acp', name: 'ACP', desc: 'Agent Communication Protocol gateway', icon: 'ðŸ”—' },
+  { id: 'blooio', name: 'Blooio', desc: 'iMessage/SMS via signed webhooks', icon: 'ðŸ’¬' },
+  { id: 'bluebubbles', name: 'BlueBubbles', desc: 'iMessage via BlueBubbles bridge', icon: 'ðŸ«§' },
+  { id: 'bluesky', name: 'Bluesky', desc: 'Bluesky social media', icon: 'ðŸ¦‹' },
+  { id: 'discord', name: 'Discord', desc: 'Guild channels, DMs, threads', icon: 'ðŸŽ®' },
+  { id: 'farcaster', name: 'Farcaster', desc: 'Publishing casts, social conversations', icon: 'ðŸ“¡' },
+  { id: 'feishu', name: 'Feishu', desc: 'Bots, chats, workflow notifications', icon: 'ðŸª¶' },
+  { id: 'github', name: 'GitHub', desc: 'Issues and discussions', icon: 'ðŸ™' },
+  { id: 'gmail-watch', name: 'Gmail Watch', desc: 'Email notifications', icon: 'ðŸ“§' },
+  { id: 'google-chat', name: 'Google Chat', desc: 'Bots, spaces, message workflows', icon: 'ðŸ’­' },
+  { id: 'imessage', name: 'iMessage', desc: 'Mac-based conversations', icon: 'ðŸ' },
+  { id: 'instagram', name: 'Instagram', desc: 'Social interactions', icon: 'ðŸ“¸' },
+  { id: 'iq', name: 'IQ', desc: 'On-chain chat (Solana)', icon: 'ðŸ§ ' },
+  { id: 'line', name: 'LINE', desc: 'Bot messaging, customer conversations', icon: 'ðŸ’š' },
+  { id: 'matrix', name: 'Matrix', desc: 'Federated chat rooms', icon: 'ðŸ—' },
+  { id: 'mattermost', name: 'Mattermost', desc: 'Team communication', icon: 'ðŸ—¨' },
+  { id: 'mcp', name: 'MCP', desc: 'Model Context Protocol', icon: 'ðŸ”Œ' },
+  { id: 'msteams', name: 'MS Teams', desc: 'Enterprise communication', icon: 'ðŸ¢' },
+  { id: 'nextcloud-talk', name: 'Nextcloud Talk', desc: 'Self-hosted chat', icon: 'â˜' },
+  { id: 'nostr', name: 'Nostr', desc: 'Relay-based social posting', icon: 'ðŸŸ£' },
+  { id: 'signal', name: 'Signal', desc: 'Encrypted messaging', icon: 'ðŸ”’' },
+  { id: 'slack', name: 'Slack', desc: 'Workspace messaging, events', icon: 'ðŸ“‹' },
+  { id: 'telegram', name: 'Telegram', desc: 'Bot chats, groups, channels', icon: 'âœˆ' },
+  { id: 'tlon', name: 'Tlon', desc: 'Urbit chat and social', icon: 'âš™' },
+  { id: 'twilio', name: 'Twilio', desc: 'SMS and voice', icon: 'ðŸ“±' },
+  { id: 'twitch', name: 'Twitch', desc: 'Live chat, channel events', icon: 'ðŸŽ¬' },
+  { id: 'twitter', name: 'Twitter / X', desc: 'Posts and interactions', icon: 'ðŸ¦' },
+  { id: 'wechat', name: 'WeChat', desc: 'Messaging via proxy API', icon: 'ðŸŸ¢' },
+  { id: 'whatsapp', name: 'WhatsApp', desc: 'Messaging automation', icon: 'ðŸ“²' },
+  { id: 'zalo', name: 'Zalo', desc: 'Official account messaging', icon: 'ðŸ’™' },
+  { id: 'zalouser', name: 'Zalo (Personal)', desc: 'Personal account messaging', icon: 'ðŸ’™' },
+];
+
+const PLUGINS_AI = [
+  { id: 'anthropic', name: 'Anthropic', desc: 'Claude chat and reasoning', icon: 'ðŸ¤–' },
+  { id: 'google-genai', name: 'Google GenAI', desc: 'Generative AI models', icon: 'ðŸ”' },
+  { id: 'groq', name: 'Groq', desc: 'Low-latency inference', icon: 'âš¡' },
+  { id: 'local-ai', name: 'Local AI', desc: 'Self-hosted OpenAI-compatible', icon: 'ðŸ ' },
+  { id: 'ollama', name: 'Ollama', desc: 'Local LLM execution', icon: 'ðŸ¦™' },
+  { id: 'openai', name: 'OpenAI', desc: 'Chat and embedding models', icon: 'ðŸ§ª' },
+  { id: 'openrouter', name: 'OpenRouter', desc: 'Multi-model routing', icon: 'ðŸ”€' },
+  { id: 'vercel-ai', name: 'Vercel AI Gateway', desc: "Vercel's AI gateway", icon: 'â–²' },
+  { id: 'xai', name: 'xAI', desc: 'X.AI model provider', icon: 'âœ–' },
+];
+
+const PLUGINS_FEATURE = [
+  { id: 'agent-orchestrator', name: 'Agent Orchestrator', desc: 'Coding agent orchestration via PTY' },
+  { id: 'agent-skills', name: 'Agent Skills', desc: 'Progressive disclosure skill spec' },
+  { id: 'auto-trader', name: 'Auto Trader', desc: 'Autonomous trading (Solana/Jupiter)' },
+  { id: 'browser', name: 'Browser', desc: 'Web browser automation' },
+  { id: 'cli', name: 'CLI', desc: 'Command-line interface' },
+  { id: 'code', name: 'Code', desc: 'Code execution and generation' },
+  { id: 'coding-agent', name: 'Coding Agent', desc: 'Coding agent swarms' },
+  { id: 'commands', name: 'Commands', desc: 'Chat commands (/help, /status, /reset)' },
+  { id: 'computeruse', name: 'Computer Use', desc: 'Computer automation' },
+  { id: 'copilot-proxy', name: 'Copilot Proxy', desc: 'GitHub Copilot proxy' },
+  { id: 'cron', name: 'Cron', desc: 'Scheduled task execution' },
+  { id: 'directives', name: 'Directives', desc: 'Inline directives (@think, @model)' },
+  { id: 'edge-tts', name: 'Edge TTS', desc: 'Edge Text-to-Speech' },
+  { id: 'elevenlabs', name: 'ElevenLabs', desc: 'Voice synthesis' },
+  { id: 'eliza-classic', name: 'Eliza Classic', desc: 'Original ELIZA patterns' },
+  { id: 'elizacloud', name: 'elizaOS Cloud', desc: 'Cloud services' },
+  { id: 'evm', name: 'EVM', desc: 'Ethereum blockchain interactions' },
+  { id: 'experience', name: 'Experience', desc: 'Learning framework' },
+  { id: 'form', name: 'Form', desc: 'Form handling' },
+  { id: 'goals', name: 'Goals', desc: 'Goal management and tracking' },
+  { id: 'hedera', name: 'Hedera', desc: 'Hedera blockchain' },
+  { id: 'knowledge', name: 'Knowledge', desc: 'RAG knowledge system' },
+  { id: 'linear', name: 'Linear', desc: 'Issue tracking' },
+  { id: 'local-embedding', name: 'Local Embedding', desc: 'Local embeddings' },
+  { id: 'lp-manager', name: 'LP Manager', desc: 'Liquidity pool management' },
+  { id: 'memory', name: 'Memory', desc: 'Agent memory management' },
+  { id: 'moltbook', name: 'Moltbook', desc: 'Reddit-style AI platform' },
+  { id: 'mysticism', name: 'Mysticism', desc: 'Mystical/spiritual features' },
+  { id: 'n8n', name: 'n8n', desc: 'Workflow automation' },
+  { id: 'pdf', name: 'PDF', desc: 'PDF operations' },
+  { id: 'personality', name: 'Personality', desc: 'Agent personality traits' },
+  { id: 'plugin-manager', name: 'Plugin Manager', desc: 'Plugin management' },
+  { id: 'polymarket', name: 'Polymarket', desc: 'Prediction markets' },
+  { id: 'prose', name: 'Prose', desc: 'Text processing' },
+  { id: 'rlm', name: 'RLM', desc: 'Reinforcement Learning' },
+  { id: 'robot-voice', name: 'Robot Voice', desc: 'Robot voice synthesis' },
+  { id: 'rolodex', name: 'Rolodex', desc: 'Contact management' },
+  { id: 'rss', name: 'RSS', desc: 'RSS feed integration' },
+  { id: 's3-storage', name: 'S3 Storage', desc: 'S3-compatible storage' },
+  { id: 'scheduling', name: 'Scheduling', desc: 'Scheduler and tasks' },
+  { id: 'scratchpad', name: 'Scratchpad', desc: 'Scratch notes' },
+  { id: 'secrets-manager', name: 'Secrets Manager', desc: 'Secrets management' },
+  { id: 'shell', name: 'Shell', desc: 'Shell execution' },
+  { id: 'simple-voice', name: 'Simple Voice', desc: 'Voice interaction' },
+  { id: 'social-alpha', name: 'Social Alpha', desc: 'Social media alpha' },
+  { id: 'solana', name: 'Solana', desc: 'Solana blockchain' },
+  { id: 'tee', name: 'TEE', desc: 'Trusted execution' },
+  { id: 'todo', name: 'Todo', desc: 'Task management' },
+  { id: 'trajectory-logger', name: 'Trajectory Logger', desc: 'Action logging' },
+  { id: 'trust', name: 'Trust', desc: 'Trust/reputation' },
+  { id: 'tts', name: 'TTS', desc: 'Text-to-Speech' },
+  { id: 'vision', name: 'Vision', desc: 'Image processing' },
+  { id: 'webhooks', name: 'Webhooks', desc: 'Webhook handling' },
+  { id: 'x402', name: 'x402', desc: 'X402 protocol' },
+];
+
+const PLUGINS_DB = [
+  { id: 'inmemorydb', name: 'In-Memory DB', desc: 'In-memory storage', icon: 'ðŸ’¾' },
+  { id: 'localdb', name: 'Local DB', desc: 'Local database', icon: 'ðŸ—„' },
+  { id: 'sql', name: 'SQL', desc: 'SQL persistent state', icon: 'ðŸ˜' },
+];
+
+const PLUGINS_APP = [
+  { id: 'babylon', name: 'Babylon', desc: 'Prediction market platform', icon: 'ðŸ›' },
+  { id: 'clawbal', name: 'Clawbal', desc: 'Chat application', icon: 'ðŸ¾' },
+  { id: 'minecraft', name: 'Minecraft', desc: 'Mineflayer automation', icon: 'â›' },
+  { id: 'roblox', name: 'Roblox', desc: 'Roblox game integration', icon: 'ðŸŽ²' },
+];
+
+const PLUGINS_STREAM = [
+  { id: 'custom-rtmp', name: 'Custom RTMP', desc: 'Custom RTMP streaming', icon: 'ðŸ“¡' },
+  { id: 'streaming-base', name: 'Streaming Base', desc: 'Base streaming', icon: 'ðŸŽ¥' },
+  { id: 'twitch-streaming', name: 'Twitch Streaming', desc: 'Twitch streams', icon: 'ðŸŸ£' },
+  { id: 'youtube-streaming', name: 'YouTube Streaming', desc: 'YouTube streams', icon: 'â–¶' },
+];
+
+const MILADY_PLUGINS = [
+  { id: 'plugin-roles', name: 'Roles', desc: 'Role-based access (OWNER, ADMIN, MEMBER)', icon: 'ðŸ‘‘' },
+  { id: 'plugin-wechat-milady', name: 'WeChat (Milady)', desc: 'WeChat via proxy (local)', icon: 'ðŸŸ¢' },
+  { id: 'cap-agent', name: 'Cap: Agent', desc: 'Mobile agent plugin', icon: 'ðŸ“±' },
+  { id: 'cap-camera', name: 'Cap: Camera', desc: 'Camera access', icon: 'ðŸ“·' },
+  { id: 'cap-canvas', name: 'Cap: Canvas', desc: 'Canvas drawing', icon: 'ðŸŽ¨' },
+  { id: 'cap-desktop', name: 'Cap: Desktop', desc: 'Desktop features', icon: 'ðŸ–¥' },
+  { id: 'cap-gateway', name: 'Cap: Gateway', desc: 'Gateway', icon: 'ðŸŒ' },
+  { id: 'cap-location', name: 'Cap: Location', desc: 'Location services', icon: 'ðŸ“' },
+  { id: 'cap-screencapture', name: 'Cap: Screen', desc: 'Screen capture', icon: 'ðŸ–¼' },
+  { id: 'cap-swabble', name: 'Cap: Swabble', desc: 'Swabble integration', icon: 'ðŸ”„' },
+  { id: 'cap-talkmode', name: 'Cap: TalkMode', desc: 'Talk mode', icon: 'ðŸŽ™' },
+];
+
+const VIDEOS = [
+  { id: 'vid-create', name: 'Create Agent in Seconds', desc: 'Show how fast and easy it is to spin up a new agent', icon: 'ðŸš€',
+    checks: ['Record screen capture', 'Show agent creation flow', 'Keep under 60 seconds', 'Add captions/overlays', 'Export final cut'] },
+  { id: 'vid-onchain', name: 'On-Chain Actions (BSC)', desc: 'Natural language blockchain interactions on BSC', icon: 'â›“',
+    checks: ['Show natural language prompt', 'Execute on-chain action', 'Show tx confirmation', 'Highlight BSC', 'Add captions', 'Export final cut'] },
+  { id: 'vid-models', name: 'Choose AI Models', desc: 'Switch between major AI models or run locally', icon: 'ðŸ§ ',
+    checks: ['Show model selection UI', 'Switch between providers', 'Demo local model (Ollama)', 'Show response comparison', 'Add captions', 'Export final cut'] },
+  { id: 'vid-sync', name: 'Multi-Platform Sync', desc: 'Sync agent across platforms using connectors', icon: 'ðŸ”—',
+    checks: ['Show connector setup', 'Demo multi-platform convo', 'Show sync in real-time', 'Add captions', 'Export final cut'] },
+  { id: 'vid-skills', name: 'Install Skills / Companion', desc: 'Agent grows and evolves with you through skills', icon: 'ðŸŒ±',
+    checks: ['Show skill installation', 'Demo skill in action', 'Show evolution concept', 'Add captions', 'Export final cut'] },
+  { id: 'vid-voice', name: 'Voice Interaction', desc: 'Talk to your agent with voice', icon: 'ðŸŽ™',
+    checks: ['Demo talk mode', 'Show voice recognition', 'Show agent response', 'Add captions', 'Export final cut'] },
+  { id: 'vid-knowledge', name: 'Knowledge / RAG', desc: 'Feed your agent knowledge and get informed answers', icon: 'ðŸ“š',
+    checks: ['Show knowledge upload', 'Ask question', 'Show sourced response', 'Add captions', 'Export final cut'] },
+  { id: 'vid-desktop', name: 'Desktop App', desc: 'Clean desktop experience on Mac and Windows', icon: 'ðŸ–¥',
+    checks: ['Show app launch', 'Navigate key features', 'Show Mac AND Windows', 'Add captions', 'Export final cut'] },
+];
+
+const TUTORIALS = [
+  { id: 'tut-telegram', name: 'Telegram Setup', desc: 'Step-by-step Telegram connector guide', icon: 'âœˆ',
+    checks: ['Intro/prerequisites', 'BotFather setup', 'Milady config', 'Test send/receive', 'Screenshots', 'Troubleshooting'] },
+  { id: 'tut-discord', name: 'Discord Setup', desc: 'Connect Milady to Discord servers', icon: 'ðŸŽ®',
+    checks: ['Intro/prerequisites', 'Dev portal setup', 'Bot permissions', 'Milady config', 'Test in guild', 'Screenshots', 'Troubleshooting'] },
+  { id: 'tut-slack', name: 'Slack Setup', desc: 'Connect Milady to Slack workspaces', icon: 'ðŸ“‹',
+    checks: ['Intro/prerequisites', 'Slack app creation', 'OAuth scopes', 'Milady config', 'Test in workspace', 'Screenshots', 'Troubleshooting'] },
+  { id: 'tut-feishu', name: 'Feishu Setup', desc: 'Connect Milady to Feishu', icon: 'ðŸª¶',
+    checks: ['Intro/prerequisites', 'Feishu bot creation', 'API credentials', 'Milady config', 'Test messaging', 'Screenshots', 'Troubleshooting'] },
+  { id: 'tut-wechat', name: 'WeChat Setup', desc: 'Connect Milady to WeChat via proxy', icon: 'ðŸŸ¢',
+    checks: ['Intro/prerequisites', 'Proxy API setup', 'Milady config', 'Test messaging', 'Screenshots', 'Troubleshooting'] },
+  { id: 'tut-twitter', name: 'Twitter / X Setup', desc: 'Connect Milady to Twitter/X', icon: 'ðŸ¦',
+    checks: ['Intro/prerequisites', 'Dev account', 'API keys', 'Milady config', 'Test posting', 'Screenshots', 'Troubleshooting'] },
+  { id: 'tut-whatsapp', name: 'WhatsApp Setup', desc: 'Connect Milady to WhatsApp', icon: 'ðŸ“²',
+    checks: ['Intro/prerequisites', 'Business API setup', 'Milady config', 'Test messaging', 'Screenshots', 'Troubleshooting'] },
+  { id: 'tut-msteams', name: 'MS Teams Setup', desc: 'Connect Milady to Microsoft Teams', icon: 'ðŸ¢',
+    checks: ['Intro/prerequisites', 'Azure app reg', 'Teams bot setup', 'Milady config', 'Test in channel', 'Screenshots', 'Troubleshooting'] },
+];
+
+const CONNECTOR_CHECKS = ['Installs without errors', 'Connects successfully', 'Sends messages', 'Receives messages', 'Handles reconnection', 'Platform-specific features'];
+const PLUGIN_CHECKS = ['Installs without errors', 'Loads in runtime', 'Core functionality works', 'No console errors', 'Edge cases handled'];
+const DEFAULT_TASK = {
+  status: 'unclaimed',
+  claimedBy: '',
+  claimedByAvatar: '',
+  checks: {},
+  notes: '',
+  reportRef: '',
+  reportVersion: '',
+  updated: '',
+};
+const DEFAULT_REPO_CONFIG = { repo: '', branch: 'gh-pages', path: 'qa-tracker/state.json' };
+
+// â”€â”€â”€ AUTH STATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+let currentUser = null;  // { login, name, avatar_url, token }
+let state = { tasks: {} };
+let repoConfig = { ...DEFAULT_REPO_CONFIG };
+let statusFilters = {};
+let fileSha = null;      // SHA of current state.json for optimistic locking
+
+function isOAuthConfigured() {
+  return OAUTH_CONFIG.clientId && OAUTH_CONFIG.workerUrl;
+}
+
+function encodeBase64Utf8(value) {
+  return btoa(String.fromCharCode(...new TextEncoder().encode(value)));
+}
+
+function decodeBase64Utf8(value) {
+  const bytes = Uint8Array.from(atob(value.replace(/\n/g, '')), char => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+function normalizeTask(task = {}) {
+  return {
+    ...DEFAULT_TASK,
+    ...task,
+    checks: task.checks || {},
+  };
+}
+
+function getChecksForItem(item, platform, checks) {
+  if (checks && checks.length) return checks;
+  if (item.checks && item.checks.length) return item.checks;
+  return platform ? PLUGIN_CHECKS : [];
+}
+
+function areAllChecksComplete(task, checks) {
+  return checks.every((_, idx) => Boolean(task.checks[idx]));
+}
+
+function hasRequiredReportFields(task) {
+  return Boolean(task.reportRef && task.reportVersion);
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// â”€â”€â”€ GITHUB OAUTH FLOW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+function startOAuth() {
+  if (!isOAuthConfigured()) {
+    toast('OAuth button is not configured yet. PAT fallback is still available.', 'error');
+    return;
+  }
+  const redirectUri = window.location.origin + window.location.pathname;
+  const state = crypto.randomUUID();
+  sessionStorage.setItem('oauth_state', state);
+  const url = `https://github.com/login/oauth/authorize?client_id=${OAUTH_CONFIG.clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${OAUTH_CONFIG.scope}&state=${state}`;
+  window.location.href = url;
+}
+
+async function handleOAuthCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  const returnedState = params.get('state');
+  if (!code) return false;
+
+  // Clear URL params
+  window.history.replaceState({}, '', window.location.pathname);
+
+  const savedState = sessionStorage.getItem('oauth_state');
+  if (savedState && returnedState !== savedState) {
+    toast('OAuth state mismatch â€” possible CSRF. Try again.', 'error');
+    return false;
+  }
+  sessionStorage.removeItem('oauth_state');
+
+  try {
+    const res = await fetch(OAUTH_CONFIG.workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+    if (!res.ok) throw new Error('Token exchange failed');
+    const data = await res.json();
+    if (!data.access_token) throw new Error(data.error_description || 'No token received');
+
+    return await verifyAndStoreToken(data.access_token);
+  } catch (e) {
+    toast('OAuth failed: ' + e.message, 'error');
+    return false;
+  }
+}
+
+// â”€â”€â”€ PAT SIGN-IN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+async function signInWithPAT() {
+  const token = document.getElementById('pat-input').value.trim();
+  if (!token) { showAuthError('Please enter a token.'); return; }
+
+  const btn = document.querySelector('.btn-pat');
+  btn.disabled = true;
+  btn.textContent = 'Verifying...';
+  hideAuthError();
+
+  try {
+    const ok = await verifyAndStoreToken(token);
+    if (!ok) showAuthError('Invalid token or insufficient permissions. For a public repo, use "public_repo" scope.');
+  } catch (e) {
+    showAuthError('Verification failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Verify & Sign In';
+  }
+}
+
+async function verifyAndStoreToken(token) {
+  const res = await fetch('https://api.github.com/user', {
+    headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' },
+  });
+  if (!res.ok) return false;
+
+  const user = await res.json();
+  currentUser = {
+    login: user.login,
+    name: user.name || user.login,
+    avatar_url: user.avatar_url,
+    token: token,
+  };
+  localStorage.setItem('milady-qa-auth', JSON.stringify(currentUser));
+  showApp();
+  return true;
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+function hideAuthError() { document.getElementById('auth-error').style.display = 'none'; }
+
+function signOut() {
+  currentUser = null;
+  localStorage.removeItem('milady-qa-auth');
+  document.getElementById('main-app').classList.add('hidden');
+  document.getElementById('auth-screen').classList.remove('hidden');
+}
+
+// â”€â”€â”€ APP INIT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+async function showApp() {
+  document.getElementById('auth-screen').classList.add('hidden');
+  document.getElementById('main-app').classList.remove('hidden');
+
+  document.getElementById('user-avatar').src = currentUser.avatar_url;
+  document.getElementById('user-name').textContent = currentUser.name;
+  document.getElementById('user-login').textContent = '@' + currentUser.login;
+
+  // Load repo config
+  const savedCfg = localStorage.getItem('milady-qa-repo');
+  if (savedCfg) repoConfig = { ...DEFAULT_REPO_CONFIG, ...JSON.parse(savedCfg) };
+
+  // Auto-pull from GitHub if configured
+  if (repoConfig.repo) {
+    await pullState();
+  } else {
+    // Load from localStorage as fallback
+    const saved = localStorage.getItem('milady-qa-state');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      state.tasks = Object.fromEntries(Object.entries(parsed.tasks || {}).map(([key, task]) => [key, normalizeTask(task)]));
+    }
+    renderAll();
+  }
+}
+
+// â”€â”€â”€ GITHUB STATE SYNC â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+function setSyncStatus(status, text) {
+  const dot = document.getElementById('sync-dot');
+  const label = document.getElementById('sync-text');
+  dot.className = 'sync-dot ' + status;
+  label.textContent = text;
+}
+
+async function pullState() {
+  if (!repoConfig.repo) { toast('Configure repo settings first.', 'error'); return; }
+  setSyncStatus('loading', 'Pulling...');
+  try {
+    const url = `https://api.github.com/repos/${repoConfig.repo}/contents/${repoConfig.path}?ref=${repoConfig.branch}`;
+    const res = await fetch(url, {
+      headers: { 'Authorization': `token ${currentUser.token}`, 'Accept': 'application/vnd.github.v3+json' },
+    });
+    if (res.status === 404) {
+      setSyncStatus('', 'No remote state yet â€” push to create.');
+      renderAll();
+      return;
+    }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+
+    const data = await res.json();
+    fileSha = data.sha;
+    const remote = JSON.parse(decodeBase64Utf8(data.content));
+
+    // Merge: remote wins on newer timestamps, otherwise keep local
+    if (remote.tasks) {
+      for (const [key, task] of Object.entries(remote.tasks)) {
+        const local = state.tasks[key];
+        const normalizedTask = normalizeTask(task);
+        if (!local || !local.updated || (normalizedTask.updated && normalizedTask.updated >= local.updated)) {
+          state.tasks[key] = normalizedTask;
+        }
+      }
+    }
+    saveLocal();
+    renderAll();
+    setSyncStatus('', 'Synced just now');
+    toast('Pulled latest state from GitHub.', 'success');
+  } catch (e) {
+    setSyncStatus('error', 'Pull failed');
+    toast('Pull failed: ' + e.message, 'error');
+    // Fall back to local
+    const saved = localStorage.getItem('milady-qa-state');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      state.tasks = Object.fromEntries(Object.entries(parsed.tasks || {}).map(([key, task]) => [key, normalizeTask(task)]));
+    }
+    renderAll();
+  }
+}
+
+async function pushState() {
+  if (!repoConfig.repo) { toast('Configure repo settings first.', 'error'); return; }
+  setSyncStatus('loading', 'Pushing...');
+  try {
+    // Get current SHA
+    const getUrl = `https://api.github.com/repos/${repoConfig.repo}/contents/${repoConfig.path}?ref=${repoConfig.branch}`;
+    const getRes = await fetch(getUrl, {
+      headers: { 'Authorization': `token ${currentUser.token}`, 'Accept': 'application/vnd.github.v3+json' },
+    });
+    let sha = null;
+    if (getRes.ok) {
+      const data = await getRes.json();
+      sha = data.sha;
+    }
+
+    const content = encodeBase64Utf8(JSON.stringify(state, null, 2));
+    const body = {
+      message: `qa-tracker: state update by @${currentUser.login} â€” ${new Date().toISOString().slice(0, 16)}`,
+      content,
+      branch: repoConfig.branch,
+    };
+    if (sha) body.sha = sha;
+
+    const putUrl = `https://api.github.com/repos/${repoConfig.repo}/contents/${repoConfig.path}`;
+    const putRes = await fetch(putUrl, {
+      method: 'PUT',
+      headers: { 'Authorization': `token ${currentUser.token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!putRes.ok) {
+      const err = await putRes.json();
+      throw new Error(err.message || putRes.status);
+    }
+    const result = await putRes.json();
+    fileSha = result.content.sha;
+    setSyncStatus('', 'Pushed just now');
+    toast('Pushed state to GitHub.', 'success');
+  } catch (e) {
+    setSyncStatus('error', 'Push failed');
+    toast('Push failed: ' + e.message, 'error');
+  }
+}
+
+// Auto-push after every action (debounced)
+let pushTimer = null;
+function schedulePush() {
+  if (!repoConfig.repo) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => pushState(), 2000);
+}
+
+// â”€â”€â”€ LOCAL STATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+function saveLocal() {
+  localStorage.setItem('milady-qa-state', JSON.stringify(state));
+}
+
+function getTask(key) {
+  if (!state.tasks[key]) {
+    state.tasks[key] = normalizeTask();
+  } else {
+    state.tasks[key] = normalizeTask(state.tasks[key]);
+  }
+  return state.tasks[key];
+}
+
+function getUserActiveClaim() {
+  if (!currentUser) return null;
+  for (const [key, task] of Object.entries(state.tasks)) {
+    if (task.status === 'claimed' && task.claimedBy === currentUser.login) return key;
+  }
+  return null;
+}
+
+function getChecksForKey(key) {
+  const sections = [
+    ...CONNECTORS.map(item => ({ item, platformBased: true, checks: CONNECTOR_CHECKS })),
+    ...PLUGINS_AI.map(item => ({ item, platformBased: true, checks: PLUGIN_CHECKS })),
+    ...PLUGINS_FEATURE.map(item => ({ item, platformBased: true, checks: PLUGIN_CHECKS })),
+    ...PLUGINS_DB.map(item => ({ item, platformBased: true, checks: PLUGIN_CHECKS })),
+    ...PLUGINS_APP.map(item => ({ item, platformBased: true, checks: PLUGIN_CHECKS })),
+    ...PLUGINS_STREAM.map(item => ({ item, platformBased: true, checks: PLUGIN_CHECKS })),
+    ...MILADY_PLUGINS.map(item => ({ item, platformBased: true, checks: PLUGIN_CHECKS })),
+    ...VIDEOS.map(item => ({ item, platformBased: false })),
+    ...TUTORIALS.map(item => ({ item, platformBased: false })),
+  ];
+
+  for (const entry of sections) {
+    if (entry.platformBased) {
+      for (const platform of ['mac', 'win']) {
+        if (`${entry.item.id}__${platform}` === key) {
+          return getChecksForItem(entry.item, platform, entry.checks);
+        }
+      }
+      continue;
+    }
+    if (entry.item.id === key) return getChecksForItem(entry.item, null, entry.checks);
+  }
+
+  return [];
+}
+
+// â”€â”€â”€ TASK ACTIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+function claimTask(key) {
+  const active = getUserActiveClaim();
+  if (active && active !== key) {
+    toast('You already have an active claim. Finish or release it first. No cookie licking!', 'error');
+    return;
+  }
+  const task = getTask(key);
+  if (task.status !== 'unclaimed') { toast('Already claimed.', 'error'); return; }
+  task.status = 'claimed';
+  task.claimedBy = currentUser.login;
+  task.claimedByAvatar = currentUser.avatar_url;
+  task.reportRef = task.reportRef || '';
+  task.reportVersion = task.reportVersion || '';
+  task.updated = new Date().toISOString();
+  saveLocal();
+  renderAll();
+  schedulePush();
+}
+
+function releaseTask(key) {
+  const task = state.tasks[key];
+  if (!task || task.claimedBy !== currentUser.login) return;
+  task.status = 'unclaimed';
+  task.claimedBy = '';
+  task.claimedByAvatar = '';
+  task.checks = {};
+  task.notes = '';
+  task.reportRef = '';
+  task.reportVersion = '';
+  task.updated = new Date().toISOString();
+  saveLocal();
+  renderAll();
+  schedulePush();
+}
+
+function passTask(key) {
+  const task = state.tasks[key];
+  if (!task || task.claimedBy !== currentUser.login) return;
+  const checks = getChecksForKey(key);
+  if (!areAllChecksComplete(task, checks)) {
+    toast('Complete every checklist item before marking this as passed.', 'error');
+    return;
+  }
+  if (!hasRequiredReportFields(task)) {
+    toast('Add the tested branch/commit/PR and version/build before marking this as passed.', 'error');
+    return;
+  }
+  task.status = 'passed';
+  task.updated = new Date().toISOString();
+  saveLocal();
+  renderAll();
+  schedulePush();
+}
+
+function failTask(key) {
+  const task = state.tasks[key];
+  if (!task || task.claimedBy !== currentUser.login) return;
+  if (!task.notes) { toast('Add failure notes/logs before marking as failed.', 'error'); return; }
+  if (!task.reportRef && !task.reportVersion) {
+    toast('Add at least a branch/commit/PR or version/build so the failure is traceable.', 'error');
+    return;
+  }
+  task.status = 'failed';
+  task.updated = new Date().toISOString();
+  saveLocal();
+  renderAll();
+  schedulePush();
+}
+
+function reclaimTask(key) {
+  const active = getUserActiveClaim();
+  if (active && active !== key) {
+    toast('Finish or release your current claim first.', 'error');
+    return;
+  }
+  const task = state.tasks[key];
+  if (!task) return;
+  task.status = 'claimed';
+  task.claimedBy = currentUser.login;
+  task.claimedByAvatar = currentUser.avatar_url;
+  task.checks = {};
+  task.updated = new Date().toISOString();
+  saveLocal();
+  renderAll();
+  schedulePush();
+}
+
+function toggleCheck(key, idx, checked) {
+  const task = state.tasks[key];
+  if (!task) return;
+  task.checks[idx] = checked;
+  task.updated = new Date().toISOString();
+  saveLocal();
+  schedulePush();
+}
+
+function updateNotes(key, value) {
+  const task = state.tasks[key];
+  if (!task) return;
+  task.notes = value;
+  task.updated = new Date().toISOString();
+  saveLocal();
+  schedulePush();
+}
+
+function updateReportField(key, field, value) {
+  const task = state.tasks[key];
+  if (!task) return;
+  task[field] = value.trim();
+  task.updated = new Date().toISOString();
+  saveLocal();
+  schedulePush();
+}
+function makeCard(item, section, platform, checks) {
+  const key = platform ? `${item.id}__${platform}` : item.id;
+  const task = getTask(key);
+  const isMine = currentUser && task.claimedBy === currentUser.login;
+  const activeClaim = getUserActiveClaim();
+  const canClaim = currentUser && (!activeClaim || activeClaim === key) && task.status === 'unclaimed';
+  const canAct = isMine && task.status === 'claimed';
+  const cl = getChecksForItem(item, platform, checks);
+  const canPass = canAct && areAllChecksComplete(task, cl) && hasRequiredReportFields(task);
+  const sf = statusFilters[section] || 'all';
+  const hidden = sf !== 'all' && task.status !== sf;
+
+  let h = `<div class="card status-${task.status}" data-key="${key}" data-status="${task.status}" data-name="${item.name}" style="${hidden ? 'display:none' : ''}">`;
+  h += `<div class="card-header">`;
+  h += `<div class="card-icon">${item.icon || '🔧'}</div>`;
+  h += `<div class="card-title-area">`;
+  h += `<div class="card-title">${escapeHtml(item.name)}`;
+  if (platform) h += ` <span class="platform-badge ${platform}">${platform === 'mac' ? 'macOS' : 'Windows'}</span>`;
+  h += `</div>`;
+  h += `<div class="card-subtitle">${escapeHtml(item.desc)}</div></div>`;
+  h += `<span class="status-badge ${task.status}">${task.status}</span></div>`;
+
+  if (task.status !== 'unclaimed' || canClaim) {
+    h += `<div class="card-body"><ul class="checklist">`;
+    cl.forEach((c, i) => {
+      const ck = task.checks[i];
+      h += `<li class="${ck ? 'checked' : ''}"><input type="checkbox" ${ck ? 'checked' : ''} ${!canAct ? 'disabled' : ''} onchange="toggleCheck('${key}',${i},this.checked)" /> ${escapeHtml(c)}</li>`;
+    });
+    h += `</ul>`;
+    h += `<div class="report-grid">`;
+    h += `<div class="report-field"><label>Branch / commit / PR</label><input type="text" placeholder="develop @ e84ade9 or PR #123" value="${escapeHtml(task.reportRef || '')}" ${!canAct ? 'disabled' : ''} onblur="updateReportField('${key}','reportRef',this.value)" /></div>`;
+    h += `<div class="report-field"><label>Version / build</label><input type="text" placeholder="v2.0.0-alpha.116 / dmg build" value="${escapeHtml(task.reportVersion || '')}" ${!canAct ? 'disabled' : ''} onblur="updateReportField('${key}','reportVersion',this.value)" /></div>`;
+    h += `</div>`;
+    h += `<div class="notes-area"><label>Notes / failure logs:</label>`;
+    h += `<textarea placeholder="Paste errors, describe issues, link logs..." ${!canAct ? 'disabled' : ''} onblur="updateNotes('${key}',this.value)">${escapeHtml(task.notes || '')}</textarea></div>`;
+    if (canAct) {
+      h += `<div class="report-helper">Passed requires every checklist item plus both report fields. Failed requires notes plus at least one report field.</div>`;
+    }
+    h += `</div>`;
+  }
+
+  h += `<div class="card-actions">`;
+  if (task.status === 'unclaimed') {
+    h += `<button class="btn btn-claim" ${!canClaim ? 'disabled title="Sign in first"' : ''} onclick="claimTask('${key}')">Claim This</button>`;
+  } else if (task.status === 'claimed') {
+    h += `<span class="claimed-by">${task.claimedByAvatar ? `<img src="${task.claimedByAvatar}" />` : ''} Claimed by <strong>@${task.claimedBy}</strong></span>`;
+    if (isMine) {
+      h += `<button class="btn btn-release" onclick="releaseTask('${key}')">Release</button>`;
+      h += `<button class="btn btn-pass" ${canPass ? '' : 'disabled'} onclick="passTask('${key}')">Passed</button>`;
+      h += `<button class="btn btn-fail" onclick="failTask('${key}')">Failed</button>`;
+    }
+  } else if (task.status === 'passed') {
+    h += `<span class="claimed-by">${task.claimedByAvatar ? `<img src="${task.claimedByAvatar}" />` : ''} Verified by <strong>@${task.claimedBy}</strong></span>`;
+  } else if (task.status === 'failed') {
+    h += `<span class="claimed-by">${task.claimedByAvatar ? `<img src="${task.claimedByAvatar}" />` : ''} Tested by <strong>@${task.claimedBy}</strong></span>`;
+    h += `<button class="btn btn-claim" ${(!currentUser || (activeClaim && activeClaim !== key)) ? 'disabled' : ''} onclick="reclaimTask('${key}')">Re-test</button>`;
+  }
+  h += `</div>`;
+
+  if (task.status !== 'unclaimed' && (task.reportRef || task.reportVersion)) {
+    h += `<div class="report-summary">`;
+    h += `<div><span class="summary-label">Report ref</span><div class="summary-value">${escapeHtml(task.reportRef || '—')}</div></div>`;
+    h += `<div><span class="summary-label">Version / build</span><div class="summary-value">${escapeHtml(task.reportVersion || '—')}</div></div>`;
+    h += `</div>`;
+  }
+
+  h += `</div>`;
+  return h;
+}
+function renderSection(containerId, items, section, platformBased, customChecks) {
+  let h = '';
+  items.forEach(item => {
+    if (platformBased) {
+      h += makeCard(item, section, 'mac', customChecks || CONNECTOR_CHECKS);
+      h += makeCard(item, section, 'win', customChecks || CONNECTOR_CHECKS);
+    } else {
+      h += makeCard(item, section, null, item.checks || customChecks);
+    }
+  });
+  document.getElementById(containerId).innerHTML = h;
+}
+
+function renderAll() {
+  renderSection('cards-connectors', CONNECTORS, 'connectors', true, CONNECTOR_CHECKS);
+  renderSection('cards-plugins-ai', PLUGINS_AI, 'plugins-ai', true, PLUGIN_CHECKS);
+  renderSection('cards-plugins-feature', PLUGINS_FEATURE, 'plugins-feature', true, PLUGIN_CHECKS);
+  renderSection('cards-plugins-db', PLUGINS_DB, 'plugins-db', true, PLUGIN_CHECKS);
+  renderSection('cards-plugins-app', PLUGINS_APP, 'plugins-app', true, PLUGIN_CHECKS);
+  renderSection('cards-plugins-stream', PLUGINS_STREAM, 'plugins-stream', true, PLUGIN_CHECKS);
+  renderSection('cards-milady-plugins', MILADY_PLUGINS, 'milady-plugins', true, PLUGIN_CHECKS);
+  renderSection('cards-videos', VIDEOS, 'videos', false);
+  renderSection('cards-tutorials', TUTORIALS, 'tutorials', false);
+  updateStats();
+}
+
+function updateStats() {
+  const allKeys = [
+    ...CONNECTORS.flatMap(c => [`${c.id}__mac`, `${c.id}__win`]),
+    ...PLUGINS_AI.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    ...PLUGINS_FEATURE.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    ...PLUGINS_DB.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    ...PLUGINS_APP.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    ...PLUGINS_STREAM.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    ...MILADY_PLUGINS.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    ...VIDEOS.map(v => v.id),
+    ...TUTORIALS.map(t => t.id),
+  ];
+  let total = allKeys.length, unclaimed = 0, claimed = 0, passed = 0, failed = 0;
+  allKeys.forEach(k => {
+    const t = state.tasks[k];
+    if (!t || t.status === 'unclaimed') unclaimed++;
+    else if (t.status === 'claimed') claimed++;
+    else if (t.status === 'passed') passed++;
+    else if (t.status === 'failed') failed++;
+  });
+
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-unclaimed').textContent = unclaimed;
+  document.getElementById('stat-claimed').textContent = claimed;
+  document.getElementById('stat-passed').textContent = passed;
+  document.getElementById('stat-failed').textContent = failed;
+
+  const done = passed + failed;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = `${pct}% verified (${done}/${total})`;
+  document.getElementById('my-claim-count').textContent = getUserActiveClaim() ? '1' : '0';
+
+  // Badge counts
+  const sectionMap = {
+    'connectors': CONNECTORS.flatMap(c => [`${c.id}__mac`, `${c.id}__win`]),
+    'plugins-ai': PLUGINS_AI.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    'plugins-feature': PLUGINS_FEATURE.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    'plugins-db': PLUGINS_DB.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    'plugins-app': PLUGINS_APP.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    'plugins-stream': PLUGINS_STREAM.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    'milady-plugins': MILADY_PLUGINS.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    'videos': VIDEOS.map(v => v.id),
+    'tutorials': TUTORIALS.map(t => t.id),
+  };
+  for (const [s, keys] of Object.entries(sectionMap)) {
+    const badge = document.getElementById('badge-' + s);
+    if (badge) badge.textContent = keys.length;
+  }
+}
+
+// â”€â”€â”€ FILTERING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+function filterCards(section) {
+  const q = (document.getElementById('filter-' + section)?.value || '').toLowerCase();
+  const cards = document.getElementById('cards-' + section).querySelectorAll('.card');
+  const sf = statusFilters[section] || 'all';
+  cards.forEach(card => {
+    const matchName = !q || card.dataset.name.toLowerCase().includes(q);
+    const matchStatus = sf === 'all' || card.dataset.status === sf;
+    card.style.display = matchName && matchStatus ? '' : 'none';
+  });
+}
+
+function setStatusFilter(section, filter, btn) {
+  statusFilters[section] = filter;
+  btn.parentElement.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  filterCards(section);
+}
+
+// â”€â”€â”€ TABS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+document.getElementById('tabs').addEventListener('click', e => {
+  const tab = e.target.closest('.tab');
+  if (!tab) return;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  tab.classList.add('active');
+  document.getElementById('section-' + tab.dataset.tab).classList.add('active');
+});
+
+// â”€â”€â”€ CONFIG MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+function showConfigModal() {
+  document.getElementById('cfg-repo').value = repoConfig.repo;
+  document.getElementById('cfg-branch').value = repoConfig.branch;
+  document.getElementById('cfg-path').value = repoConfig.path;
+  document.getElementById('config-modal').classList.add('active');
+}
+function closeConfigModal() { document.getElementById('config-modal').classList.remove('active'); }
+function saveConfig() {
+  repoConfig.repo = document.getElementById('cfg-repo').value.trim();
+  repoConfig.branch = document.getElementById('cfg-branch').value.trim() || DEFAULT_REPO_CONFIG.branch;
+  repoConfig.path = document.getElementById('cfg-path').value.trim() || DEFAULT_REPO_CONFIG.path;
+  localStorage.setItem('milady-qa-repo', JSON.stringify(repoConfig));
+  closeConfigModal();
+  toast('Repo settings saved.', 'success');
+}
+
+document.getElementById('config-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeConfigModal();
+});
+
+// â”€â”€â”€ TOAST â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3500);
+}
+
+// â”€â”€â”€ BOOT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+(async function boot() {
+  // Check for OAuth callback first
+  if (isOAuthConfigured() && window.location.search.includes('code=')) {
+    const ok = await handleOAuthCallback();
+    if (ok) return;
+  }
+
+  // Check for saved session
+  const saved = localStorage.getItem('milady-qa-auth');
+  if (saved) {
+    try {
+      currentUser = JSON.parse(saved);
+      // Verify token is still valid
+      const res = await fetch('https://api.github.com/user', {
+        headers: { 'Authorization': `token ${currentUser.token}`, 'Accept': 'application/vnd.github.v3+json' },
+      });
+      if (res.ok) {
+        const user = await res.json();
+        currentUser.login = user.login;
+        currentUser.name = user.name || user.login;
+        currentUser.avatar_url = user.avatar_url;
+        localStorage.setItem('milady-qa-auth', JSON.stringify(currentUser));
+        showApp();
+        return;
+      }
+    } catch (e) {}
+    // Token expired
+    localStorage.removeItem('milady-qa-auth');
+    currentUser = null;
+  }
+
+  // Show auth screen
+  if (!isOAuthConfigured()) {
+    document.getElementById('btn-oauth').style.display = 'none';
+    document.querySelector('.auth-divider').style.display = 'none';
+  }
+})();
+</script>
+</body>
+</html>
+
