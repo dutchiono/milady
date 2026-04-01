@@ -1228,6 +1228,15 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+function getIconLabel(item) {
+  const words = String(item?.name || '')
+    .split(/[^A-Za-z0-9]+/)
+    .filter(Boolean);
+  if (words.length === 0) return 'QA';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+
 // â”€â”€â”€ GITHUB OAUTH FLOW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function startOAuth() {
@@ -1643,7 +1652,7 @@ function makeCard(item, section, platform, checks) {
 
   let h = `<div class="card status-${task.status}" data-key="${key}" data-status="${task.status}" data-name="${item.name}" style="${hidden ? 'display:none' : ''}">`;
   h += `<div class="card-header">`;
-  h += `<div class="card-icon">${item.icon || '🔧'}</div>`;
+  h += `<div class="card-icon">${getIconLabel(item)}</div>`;
   h += `<div class="card-title-area">`;
   h += `<div class="card-title">${escapeHtml(item.name)}`;
   if (platform) h += ` <span class="platform-badge ${platform}">${platform === 'mac' ? 'macOS' : 'Windows'}</span>`;
