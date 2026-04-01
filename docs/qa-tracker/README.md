@@ -11,12 +11,13 @@ The repository workflow copies these files into the Pages output and preserves t
 
 ## Sign-in modes
 
-- PAT fallback: paste a GitHub token with `repo` scope into the page.
+- OAuth first: click the GitHub button and authorize with `public_repo` scope for a public repository.
+- PAT fallback: paste a GitHub token with `public_repo` scope into the page only if OAuth is not configured yet.
 - OAuth: deploy `oauth-worker.js` as a Cloudflare Worker and set:
   - `GITHUB_CLIENT_ID`
   - `GITHUB_CLIENT_SECRET`
 
-Then update `OAUTH_CONFIG` in [`index.html`](./index.html) with the GitHub OAuth app client id and the Worker URL.
+Then update `OAUTH_CONFIG` in [`index.html`](./index.html) with the GitHub OAuth app client id and the Worker URL. The tracker is already set to request `public_repo` for public-repo writes.
 
 ## GitHub OAuth app
 

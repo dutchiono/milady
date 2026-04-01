@@ -744,23 +744,23 @@
   <div id="auth-screen" class="auth-screen">
     <div class="auth-box">
       <h2>Sign in to continue</h2>
-      <p>Sign in with GitHub so we know who you are. Your identity is verified â€” no cookie licking allowed.</p>
+      <p>Sign in with GitHub so we know who you are. Use the GitHub button for normal access on a public repo. No cookie licking allowed.</p>
 
       <button class="btn-github" id="btn-oauth" onclick="startOAuth()">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
         Sign in with GitHub
       </button>
 
-      <div class="auth-divider">or use a Personal Access Token</div>
+      <div class="auth-divider">fallback only</div>
 
       <div class="pat-section">
-        <label for="pat-input">Personal Access Token</label>
+        <label for="pat-input">Personal Access Token (fallback)</label>
         <input type="password" id="pat-input" placeholder="ghp_..." spellcheck="false" onkeydown="if(event.key==='Enter') signInWithPAT()" />
         <button class="btn-pat" onclick="signInWithPAT()">Verify &amp; Sign In</button>
         <p class="pat-help">
-          Generate a token with <strong>repo</strong> scope at
-          <a href="https://github.com/settings/tokens/new?scopes=repo&description=Milady+QA+Tracker" target="_blank">github.com/settings/tokens</a>.
-          Your token is stored only in your browser â€” never sent anywhere except the GitHub API.
+          Only use this if OAuth is not configured yet. For a public repo, the token only needs <strong>public_repo</strong> scope at
+          <a href="https://github.com/settings/tokens/new?scopes=public_repo&description=Milady+QA+Tracker" target="_blank">github.com/settings/tokens</a>.
+          Your token stays in your browser and is only sent to the GitHub API.
         </p>
         <div class="auth-error" id="auth-error"></div>
       </div>
@@ -776,7 +776,7 @@
       <ul>
         <li>Use <code>gh-pages</code> for the published page and <code>qa-tracker/state.json</code> for shared state unless you have a separate data branch.</li>
         <li>Failures should include logs or reproduction notes so backend devs can pick them up without re-triaging from scratch.</li>
-        <li>OAuth is supported if you deploy the included Cloudflare Worker. PAT sign-in remains available as the fallback.</li>
+        <li>For a public repo, use the GitHub OAuth button as the normal sign-in path. PAT remains as fallback only.</li>
       </ul>
     </div>
 
@@ -982,7 +982,7 @@
 const OAUTH_CONFIG = {
   clientId: '',          // Your GitHub OAuth App client ID
   workerUrl: '',         // Your Cloudflare Worker URL for token exchange
-  scope: 'repo',
+  scope: 'public_repo',
 };
 
 // â”€â”€â”€ DATA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1232,7 +1232,7 @@ function escapeHtml(value) {
 
 function startOAuth() {
   if (!isOAuthConfigured()) {
-    toast('OAuth not configured. Use a Personal Access Token instead.', 'error');
+    toast('OAuth button is not configured yet. PAT fallback is still available.', 'error');
     return;
   }
   const redirectUri = window.location.origin + window.location.pathname;
@@ -1288,7 +1288,7 @@ async function signInWithPAT() {
 
   try {
     const ok = await verifyAndStoreToken(token);
-    if (!ok) showAuthError('Invalid token or insufficient permissions. Needs "repo" scope.');
+    if (!ok) showAuthError('Invalid token or insufficient permissions. For a public repo, use "public_repo" scope.');
   } catch (e) {
     showAuthError('Verification failed: ' + e.message);
   } finally {
