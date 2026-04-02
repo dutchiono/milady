@@ -115,7 +115,7 @@ export interface PluginRouteContext {
   BLOCKED_ENV_KEYS: Set<string>;
   discoverInstalledPlugins: (config: ElizaConfig, bundledIds: Set<string>) => PluginEntry[];
   maskValue: (value: string) => string;
-  aggregateSecrets: (plugins: PluginEntry[]) => SecretEntry[];
+  aggregateSecrets: (plugins: PluginEntry[], config?: ElizaConfig) => SecretEntry[];
   readProviderCache: (providerId: string) => { models: Array<{ id: string; name: string; category: string }> } | null;
   paramKeyToCategory: (paramKey: string) => string;
   buildPluginEvmDiagnosticEntry: (opts: { config: ElizaConfig; runtime: AgentRuntime | null }) => PluginEntry;
@@ -564,7 +564,7 @@ export async function handlePluginRoutes(
       }
     }
 
-    const secrets = aggregateSecrets(allPlugins);
+    const secrets = aggregateSecrets(allPlugins, state.config);
     json(res, { secrets });
     return true;
   }
@@ -585,20 +585,34 @@ export async function handlePluginRoutes(
     const bundledIds = new Set(state.plugins.map((p) => p.id));
     const installedEntries = discoverInstalledPlugins(state.config, bundledIds);
     const allPlugins: PluginEntry[] = [...state.plugins, ...installedEntries];
-    const allowedKeys = new Set<string>();
-    for (const plugin of allPlugins) {
-      for (const param of plugin.parameters) {
-        if (param.sensitive) allowedKeys.add(param.key);
-      }
-    }
+    const allowedKeys = new Set(
+      aggregateSecrets(allPlugins, state.config).map((secret) => secret.key),
+    );
 
     const updatedKeys: string[] = [];
+    state.config.env ??= {};
+    const envConfig = state.config.env as Record<string, string>;
     for (const [key, value] of Object.entries(body.secrets)) {
       if (typeof value !== "string" || !value.trim()) continue;
       if (!allowedKeys.has(key)) continue;
       if (BLOCKED_ENV_KEYS.has(key.toUpperCase())) continue;
-      process.env[key] = value;
+      const trimmed = value.trim();
+      process.env[key] = trimmed;
+      envConfig[key] = trimmed;
       updatedKeys.push(key);
+    }
+
+    if (updatedKeys.length > 0) {
+      try {
+        saveElizaConfig(state.config);
+      } catch (err) {
+        error(
+          res,
+          `Failed to persist secrets: ${err instanceof Error ? err.message : String(err)}`,
+          500,
+        );
+        return true;
+      }
     }
 
     // Mark affected plugins as configured

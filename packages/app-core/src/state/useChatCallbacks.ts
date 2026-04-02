@@ -486,7 +486,10 @@ export function useChatCallbacks(deps: UseChatCallbacksDeps) {
       conversationHydrationEpochRef.current === hydrationEpoch;
 
     try {
-      const { conversations: c } = await client.listConversations();
+      const c = await loadConversations();
+      if (!c) {
+        throw new Error("Failed to load conversations");
+      }
       traceMiladyGreeting("hydrate:listConversations", { count: c.length });
       if (!isCurrentHydration()) {
         return null;
@@ -553,6 +556,7 @@ export function useChatCallbacks(deps: UseChatCallbacksDeps) {
     conversationHydrationEpochRef,
     conversationMessagesRef,
     greetingFiredRef,
+    loadConversations,
     setActiveConversationId,
     setConversationMessages,
     setConversations,
@@ -906,7 +910,10 @@ export function useChatCallbacks(deps: UseChatCallbacksDeps) {
         send.interruptActiveChatPipeline();
       }
       try {
-        await client.deleteConversation(id);
+        const deletion = await client.deleteConversation(id);
+        if (deletion.cleanup?.warning) {
+          setActionNotice(deletion.cleanup.warning, "warning", 5200);
+        }
         setConversations((prev) =>
           prev.filter((conversation) => conversation.id !== id),
         );

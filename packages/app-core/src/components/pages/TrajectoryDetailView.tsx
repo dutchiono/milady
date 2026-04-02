@@ -16,6 +16,9 @@ import {
 
 interface TrajectoryDetailViewProps {
   trajectoryId: string;
+  backendSupportsPersistence?: boolean;
+  backendLabel?: string | null;
+  backendUnavailableMessage?: string | null;
   onBack?: () => void;
 }
 
@@ -29,6 +32,9 @@ function estimateCost(
 
 export function TrajectoryDetailView({
   trajectoryId,
+  backendSupportsPersistence = true,
+  backendLabel = null,
+  backendUnavailableMessage = null,
   onBack,
 }: TrajectoryDetailViewProps) {
   const { t, copyToClipboard } = useApp();
@@ -37,6 +43,12 @@ export function TrajectoryDetailView({
   const [error, setError] = useState<string | null>(null);
 
   const loadDetail = useCallback(async () => {
+    if (!backendSupportsPersistence) {
+      setDetail(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -49,7 +61,7 @@ export function TrajectoryDetailView({
     } finally {
       setLoading(false);
     }
-  }, [trajectoryId]);
+  }, [backendSupportsPersistence, trajectoryId]);
 
   useEffect(() => {
     void loadDetail();
@@ -80,7 +92,12 @@ export function TrajectoryDetailView({
       <PagePanel.Empty
         variant="workspace"
         title={t("trajectorydetailview.Unavailable")}
-        description={t("trajectorydetailview.TrajectoryNotFound")}
+        description={
+          !backendSupportsPersistence
+            ? backendUnavailableMessage ??
+              `Trajectory details are unavailable while the active backend is ${backendLabel ?? "unsupported"}.`
+            : t("trajectorydetailview.TrajectoryNotFound")
+        }
       />
     );
   }

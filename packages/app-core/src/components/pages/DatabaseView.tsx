@@ -69,6 +69,24 @@ export function DatabaseView({
   const [queryHistory, setQueryHistory] = useState<string[]>([]);
 
   const ROW_LIMIT = 50;
+  const backendCapabilities = dbStatus?.backend?.capabilities;
+  const databaseBrowserAvailable = backendCapabilities?.databaseBrowser ?? true;
+  const sqlQueryAvailable = backendCapabilities?.sqlQuery ?? true;
+  const databaseUnavailableDescription =
+    dbStatus?.backend && !databaseBrowserAvailable
+      ? `The database browser is not available while the active backend is ${dbStatus.backend.active}. Switch back to legacy-sql to browse tables and run SQL queries.`
+      : t("databaseview.TheDatabaseViewer");
+  const convexMissing = dbStatus?.backend?.convex.missing ?? [];
+  const convexNeedsSecret = convexMissing.includes("adminKey");
+  const convexBlockedMessage =
+    dbStatus?.backend?.configured === "convex" &&
+    !dbStatus.backend.convex.canActivate
+      ? convexNeedsSecret
+        ? "Convex is configured but missing CONVEX_ADMIN_KEY. Add that secret in the Secrets vault so the backend can activate."
+        : dbStatus.backend.convex.runtimeFlagEnabled
+          ? `Convex is configured but still incomplete: ${convexMissing.join(", ")}.`
+          : "Convex is configured but the rollout flag is still off."
+      : null;
 
   const loadStatus = useCallback(async (): Promise<DatabaseStatus | null> => {
     try {
@@ -217,7 +235,10 @@ export function DatabaseView({
   useEffect(() => {
     const init = async () => {
       const status = await loadStatus();
-      if (status?.connected) {
+      if (
+        status?.connected &&
+        (status.backend?.capabilities?.databaseBrowser ?? true)
+      ) {
         await loadTables();
       }
     };
@@ -259,7 +280,11 @@ export function DatabaseView({
               : "bg-danger"
           }`}
         />
-        <span>{dbStatus?.provider ?? t("onboarding.connecting")}</span>
+        <span>
+          {dbStatus?.backend?.active ??
+            dbStatus?.provider ??
+            t("onboarding.connecting")}
+        </span>
       </div>
       <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted/75">
         <MetaPill>
@@ -275,6 +300,20 @@ export function DatabaseView({
             {selectedTable}
           </span>
         ) : null}
+        {dbStatus?.backend ? <MetaPill>cfg {dbStatus.backend.configured}</MetaPill> : null}
+        {dbStatus?.backend?.needsMigration ? (
+          <MetaPill>migrate to {dbStatus.backend.configured}</MetaPill>
+        ) : null}
+        {dbStatus?.backend?.configured === "convex" &&
+        !dbStatus.backend.convex.canActivate ? (
+          <MetaPill>
+            {convexNeedsSecret
+              ? "convex secret required"
+              : dbStatus.backend.convex.runtimeFlagEnabled
+                ? "convex incomplete"
+              : "convex flag required"}
+          </MetaPill>
+        ) : null}
       </div>
     </PagePanel.SummaryCard>
   );
@@ -286,7 +325,10 @@ export function DatabaseView({
       className="h-10 w-full justify-start rounded-[18px] px-4 text-xs font-semibold border border-border/32 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card)_84%,transparent),color-mix(in_srgb,var(--bg)_95%,transparent))] text-muted-strong shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_14px_20px_-18px_rgba(15,23,42,0.14)] backdrop-blur-md transition-[border-color,background-color,color,transform,box-shadow] duration-200 hover:border-border/46 hover:bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card)_90%,transparent),color-mix(in_srgb,var(--bg)_97%,transparent))] hover:text-txt hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_16px_22px_-18px_rgba(15,23,42,0.16)] active:scale-95 disabled:hover:border-border/32 disabled:hover:bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card)_84%,transparent),color-mix(in_srgb,var(--bg)_95%,transparent))] disabled:hover:text-muted-strong dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_16px_24px_-20px_rgba(0,0,0,0.24)]"
       onClick={async () => {
         const status = await loadStatus();
-        if (status?.connected) {
+        if (
+          status?.connected &&
+          (status.backend?.capabilities?.databaseBrowser ?? true)
+        ) {
           await loadTables();
         }
       }}
@@ -409,7 +451,7 @@ export function DatabaseView({
             </div>
           ) : null}
 
-          {dbStatus && !dbStatus.connected ? (
+          {dbStatus && (!dbStatus.connected || !databaseBrowserAvailable) ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-auto p-6">
               <PagePanel variant="surface" as="section"
                 className="px-5 py-5 sm:px-6"
@@ -425,11 +467,24 @@ export function DatabaseView({
               <PagePanel variant="surface"
                 className="mt-4 flex min-h-[18rem] flex-1 items-center justify-center p-6"
               >
-                <PagePanel.Empty
-                  className="w-full min-h-[14rem]"
-                  title={t("databaseview.DatabaseNotAvailab")}
-                  description={t("databaseview.TheDatabaseViewer")}
-                />
+                <div className="w-full space-y-4">
+                  <PagePanel.Empty
+                    className="w-full min-h-[14rem]"
+                    title={t("databaseview.DatabaseNotAvailab")}
+                    description={databaseUnavailableDescription}
+                  />
+                  {convexBlockedMessage ? (
+                    <div className="rounded-xl border border-warn/30 bg-warn/10 px-4 py-3 text-xs text-warn">
+                      <p className="m-0 font-medium text-txt">
+                        Convex activation is blocked
+                      </p>
+                      <p className="mt-1 mb-0">
+                        {convexBlockedMessage} Manage Convex credentials through
+                        the standard Secrets view, not the backend config form.
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
               </PagePanel>
             </div>
           ) : view === "tables" ? (
@@ -525,6 +580,16 @@ export function DatabaseView({
                 </>
               ) : null}
             </div>
+          ) : !sqlQueryAvailable ? (
+            <div className="p-4 border border-border/40 bg-card/60 backdrop-blur-md rounded-2xl text-muted text-sm shadow-sm">
+              <p className="m-0 mb-2 font-medium text-txt tracking-wide">
+                {t("databaseview.DatabaseNotAvailab")}
+              </p>
+              <p className="m-0 text-xs">
+                The SQL editor is not available while the active backend is{" "}
+                {dbStatus?.backend?.active ?? "unknown"}.
+              </p>
+            </div>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col overflow-auto p-6">
               <SqlEditorPanel {...sqlEditorProps} showHistory={false} />
@@ -551,11 +616,19 @@ export function DatabaseView({
                 <span
                   className={`h-2 w-2 rounded-full shadow-[0_0_8px_currentColor] ${dbStatus.connected ? "bg-ok text-ok" : "bg-danger text-danger"}`}
                 />
-                <span className="tracking-wide">{dbStatus.provider}</span>
+                <span className="tracking-wide">
+                  {dbStatus.backend?.active ?? dbStatus.provider}
+                </span>
                 <span className="opacity-40">·</span>
                 <span>
                   {dbStatus.tableCount} {t("databaseview.tables")}
                 </span>
+                {dbStatus.backend?.needsMigration ? (
+                  <>
+                    <span className="opacity-40">·</span>
+                    <span>cfg {dbStatus.backend.configured}</span>
+                  </>
+                ) : null}
               </>
             ) : (
               <span>{t("onboarding.connecting")}</span>
@@ -572,7 +645,10 @@ export function DatabaseView({
             className="h-auto min-h-[2.25rem] whitespace-normal break-words rounded-xl border-border/50 bg-bg/50 px-4 py-1.5 text-xs font-medium backdrop-blur-md shadow-sm transition-[border-color,color,transform,box-shadow] duration-300 hover:border-accent hover:text-txt hover:shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)]"
             onClick={async () => {
               const status = await loadStatus();
-              if (status?.connected) {
+              if (
+                status?.connected &&
+                (status.backend?.capabilities?.databaseBrowser ?? true)
+              ) {
                 await loadTables();
               }
             }}
@@ -582,12 +658,17 @@ export function DatabaseView({
         </div>
       )}
 
-      {dbStatus && !dbStatus.connected && (
+      {dbStatus && (!dbStatus.connected || !databaseBrowserAvailable) && (
         <div className="p-4 border border-border/40 bg-card/60 backdrop-blur-md rounded-2xl text-muted text-sm shadow-sm">
           <p className="m-0 mb-2 font-medium text-txt tracking-wide">
             {t("databaseview.DatabaseNotAvailab")}
           </p>
-          <p className="m-0 text-xs">{t("databaseview.TheDatabaseViewer")}</p>
+          <p className="m-0 text-xs">{databaseUnavailableDescription}</p>
+          {convexBlockedMessage ? (
+            <p className="mt-3 mb-0 text-xs text-warn">
+              {convexBlockedMessage} Manage `CONVEX_ADMIN_KEY` in Secrets.
+            </p>
+          ) : null}
         </div>
       )}
 
@@ -635,7 +716,11 @@ export function DatabaseView({
                         className="h-10 w-full justify-start rounded-xl px-4 text-xs font-semibold shadow-sm"
                         onClick={async () => {
                           const status = await loadStatus();
-                          if (status?.connected) {
+                          if (
+                            status?.connected &&
+                            (status.backend?.capabilities?.databaseBrowser ??
+                              true)
+                          ) {
                             await loadTables();
                           }
                         }}

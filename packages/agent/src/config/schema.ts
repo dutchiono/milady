@@ -144,6 +144,8 @@ const GROUP_LABELS: Record<string, string> = {
   tools: "Tools",
   bindings: "Bindings",
   audio: "Audio",
+  backend: "Backend",
+  database: "Database",
   models: "Models",
   messages: "Messages",
   commands: "Commands",
@@ -172,6 +174,8 @@ const GROUP_ORDER: Record<string, number> = {
   tools: 50,
   bindings: 55,
   audio: 60,
+  backend: 65,
+  database: 67,
   models: 70,
   messages: 80,
   commands: 85,
@@ -377,6 +381,38 @@ const FIELD_LABELS: Record<string, string> = {
   "embedding.contextSize": "Embedding Context Size",
   "embedding.gpuLayers": "Embedding GPU Layers",
   "embedding.idleTimeoutMinutes": "Embedding Idle Timeout (min)",
+  "backend.kind": "Backend Kind",
+  "backend.convex.enabled": "Convex Enabled",
+  "backend.convex.url": "Convex URL",
+  "backend.convex.deployment": "Convex Deployment",
+  "backend.convex.adminKey": "Convex Admin Key",
+  "backend.convex.trajectory.listTrajectories":
+    "Convex Trajectory List Function",
+  "backend.convex.trajectory.getTrajectoryDetail":
+    "Convex Trajectory Detail Function",
+  "backend.convex.trajectory.getTrajectoryStats":
+    "Convex Trajectory Stats Function",
+  "backend.convex.trajectory.startTrajectory":
+    "Convex Trajectory Start Function",
+  "backend.convex.trajectory.completeTrajectory":
+    "Convex Trajectory Complete Function",
+  "backend.convex.trajectory.appendLlmCall":
+    "Convex Trajectory LLM Call Function",
+  "backend.convex.trajectory.appendProviderAccess":
+    "Convex Trajectory Provider Access Function",
+  "backend.convex.trajectory.deleteTrajectories":
+    "Convex Trajectory Delete Function",
+  "backend.convex.trajectory.clearAllTrajectories":
+    "Convex Trajectory Clear Function",
+  "database.provider": "Database Provider",
+  "database.pglite.dataDir": "PGLite Data Directory",
+  "database.postgres.connectionString": "Postgres Connection String",
+  "database.postgres.host": "Postgres Host",
+  "database.postgres.port": "Postgres Port",
+  "database.postgres.database": "Postgres Database",
+  "database.postgres.user": "Postgres User",
+  "database.postgres.password": "Postgres Password",
+  "database.postgres.ssl": "Postgres SSL",
   memory: "Memory",
   "memory.backend": "Memory Backend",
   "memory.citations": "Memory Citations Mode",
@@ -606,6 +642,34 @@ const FIELD_HELP: Record<string, string> = {
     "Directories to prepend to PATH for exec runs (gateway/sandbox).",
   "tools.exec.safeBins":
     "Allow stdin-only safe binaries to run without explicit allowlist entries.",
+  "backend.kind":
+    'Top-level backend selection. Use "legacy-sql" during migration or "convex" to activate the Convex runtime path.',
+  "backend.convex.enabled":
+    "Enable Convex as a configured backend target. Activation still requires complete config and the Convex rollout flag.",
+  "backend.convex.url":
+    "Base Convex deployment URL used for HTTP query and mutation calls.",
+  "backend.convex.deployment":
+    "Deployment label used for status reporting and migration diagnostics.",
+  "backend.convex.adminKey":
+    "Convex admin key used to authorize server-to-server HTTP function calls.",
+  "backend.convex.trajectory.listTrajectories":
+    "Convex query function path that returns paginated trajectory summaries.",
+  "backend.convex.trajectory.getTrajectoryDetail":
+    "Convex query function path that returns one persisted trajectory with steps, calls, and metadata.",
+  "backend.convex.trajectory.getTrajectoryStats":
+    "Convex query function path that returns aggregate trajectory statistics.",
+  "backend.convex.trajectory.startTrajectory":
+    "Convex mutation function path that creates or marks a trajectory step active.",
+  "backend.convex.trajectory.completeTrajectory":
+    "Convex mutation function path that completes a trajectory step and sets final status.",
+  "backend.convex.trajectory.appendLlmCall":
+    "Convex mutation function path that appends one normalized LLM call payload to a trajectory step.",
+  "backend.convex.trajectory.appendProviderAccess":
+    "Convex mutation function path that appends one normalized provider-access payload to a trajectory step.",
+  "backend.convex.trajectory.deleteTrajectories":
+    "Convex mutation function path that deletes a specific list of trajectory ids.",
+  "backend.convex.trajectory.clearAllTrajectories":
+    "Convex mutation function path that deletes all trajectories for the active agent scope.",
   "tools.message.allowCrossContextSend":
     "Legacy override: allow cross-context sends across all providers.",
   "tools.message.crossContext.allowWithinProvider":

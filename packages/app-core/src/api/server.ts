@@ -324,11 +324,19 @@ async function clearCompatRuntimeStateViaApi(
     }>(req, "/api/conversations");
     for (const conversation of conversations.conversations ?? []) {
       if (!conversation?.id) continue;
-      await compatLoopbackRequest(
+      const deletion = await compatLoopbackFetchJson<{
+        cleanup?: { warning?: string | null };
+      }>(
         req,
         `/api/conversations/${encodeURIComponent(conversation.id)}`,
         { method: "DELETE" },
       );
+      const warning = deletion.cleanup?.warning?.trim();
+      if (warning) {
+        logger.warn(
+          `[milady][reset] Conversation ${conversation.id} cleared with backend warning: ${warning}`,
+        );
+      }
     }
   } catch (err) {
     logger.warn(

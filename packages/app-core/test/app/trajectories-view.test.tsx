@@ -8,6 +8,8 @@ const hoisted = vi.hoisted(() => ({
   mockUseApp: vi.fn(),
   mockClient: {
     getTrajectories: vi.fn(),
+    getTrajectoryConfig: vi.fn(),
+    getTrajectoryDetail: vi.fn(),
     exportTrajectories: vi.fn(),
   },
 }));
@@ -293,6 +295,52 @@ function createTranslator(): (
 
 function setBaseMocks(): void {
   mockClient.getTrajectories.mockResolvedValue(trajectoryList);
+  mockClient.getTrajectoryConfig.mockResolvedValue({
+    enabled: true,
+    backend: {
+      configured: "legacy-sql",
+      active: "legacy-sql",
+      needsMigration: false,
+      legacyProvider: "pglite",
+      capabilities: {
+        databaseBrowser: true,
+        sqlQuery: true,
+        trajectoryPersistence: true,
+      },
+      convex: {
+        enabled: false,
+        url: null,
+        deployment: null,
+        hasAdminKey: false,
+        runtimeFlagEnabled: false,
+        canActivate: false,
+        missing: [],
+      },
+    },
+  });
+  mockClient.getTrajectoryDetail.mockResolvedValue({
+    trajectory: {
+      id: "traj-1",
+      agentId: "chat-stream-agent",
+      roomId: null,
+      entityId: null,
+      conversationId: null,
+      source: "chat",
+      status: "completed",
+      startTime: Date.now() - 1000,
+      endTime: Date.now(),
+      durationMs: 1000,
+      llmCallCount: 1,
+      providerAccessCount: 0,
+      totalPromptTokens: 1,
+      totalCompletionTokens: 1,
+      metadata: {},
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    llmCalls: [],
+    providerAccesses: [],
+  });
   mockClient.exportTrajectories.mockResolvedValue(
     new Blob(["[]"], { type: "application/json" }),
   );
@@ -355,5 +403,104 @@ describe("TrajectoriesView", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("shows the Secrets-directed blocked copy for convex backends missing CONVEX_ADMIN_KEY", async () => {
+    setBaseMocks();
+    mockClient.getTrajectoryConfig.mockResolvedValue({
+      enabled: true,
+      backend: {
+        configured: "convex",
+        active: "convex",
+        needsMigration: false,
+        legacyProvider: "pglite",
+        capabilities: {
+          databaseBrowser: false,
+          sqlQuery: false,
+          trajectoryPersistence: false,
+        },
+        convex: {
+          enabled: true,
+          url: "https://example.convex.cloud",
+          deployment: "dev:milady",
+          hasAdminKey: false,
+          runtimeFlagEnabled: true,
+          canActivate: false,
+          missing: ["adminKey"],
+        },
+      },
+    });
+
+    let tree: TestRenderer.ReactTestRenderer | undefined;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(TrajectoriesView));
+    });
+    await flush();
+
+    if (tree == null) throw new Error("expected tree");
+    expect(collectText(tree.root)).toContain(
+      "Convex trajectory persistence is blocked until CONVEX_ADMIN_KEY is added in Secrets.",
+    );
+  });
+
+  it("does not fetch trajectory detail when backend persistence is unavailable", async () => {
+    setBaseMocks();
+    mockClient.getTrajectories.mockResolvedValue({
+      trajectories: [
+        {
+          id: "traj-1",
+          agentId: "chat-stream-agent",
+          source: "chat",
+          status: "completed",
+          startTime: Date.now() - 1000,
+          endTime: Date.now(),
+          durationMs: 1000,
+          llmCallCount: 1,
+          providerAccessCount: 0,
+          totalPromptTokens: 4,
+          totalCompletionTokens: 6,
+          createdAt: new Date().toISOString(),
+          metadata: {},
+        },
+      ],
+      total: 1,
+      offset: 0,
+      limit: 50,
+    });
+    mockClient.getTrajectoryConfig.mockResolvedValue({
+      enabled: true,
+      backend: {
+        configured: "convex",
+        active: "convex",
+        needsMigration: false,
+        legacyProvider: "pglite",
+        capabilities: {
+          databaseBrowser: false,
+          sqlQuery: false,
+          trajectoryPersistence: false,
+        },
+        convex: {
+          enabled: true,
+          url: "https://example.convex.cloud",
+          deployment: "dev:milady",
+          hasAdminKey: false,
+          runtimeFlagEnabled: true,
+          canActivate: false,
+          missing: ["adminKey"],
+        },
+      },
+    });
+
+    let tree: TestRenderer.ReactTestRenderer | undefined;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(TrajectoriesView));
+    });
+    await flush();
+
+    if (tree == null) throw new Error("expected tree");
+    expect(mockClient.getTrajectoryDetail).not.toHaveBeenCalled();
+    expect(collectText(tree.root)).toContain(
+      "Convex trajectory persistence is blocked until CONVEX_ADMIN_KEY is added in Secrets.",
+    );
   });
 });

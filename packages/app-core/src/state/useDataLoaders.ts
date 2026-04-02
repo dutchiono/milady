@@ -37,6 +37,7 @@ import {
   type WalletTradingProfileWindow,
   type WorkbenchOverview,
 } from "../api";
+import type { BackendRuntimeStatus } from "@miladyai/shared";
 import {
   type AutonomyRunHealthMap,
   buildAutonomyGapReplayRequests,
@@ -120,6 +121,11 @@ export interface DataLoadersDeps {
   setConversations: (v: Conversation[]) => void;
   setActiveConversationId: (v: string | null) => void;
   setConversationMessages: (v: ConversationMessage[]) => void;
+  setActionNotice: (
+    text: string,
+    tone?: "info" | "success" | "error" | "warning",
+    ms?: number,
+  ) => void;
 
   // Wallet
   loadWalletConfig: () => Promise<void>;
@@ -155,6 +161,7 @@ export function useDataLoaders(deps: DataLoadersDeps) {
     setConversations,
     setActiveConversationId,
     setConversationMessages,
+    setActionNotice,
     loadWalletConfig,
     agentStatus,
     characterData,
@@ -267,19 +274,44 @@ export function useDataLoaders(deps: DataLoadersDeps) {
     [applyAutonomyEventMerge, fetchAutonomyReplay],
   );
 
+  const conversationBackendNoticeRef = useRef<string | null>(null);
+
+  const maybeSurfaceConversationBackendNotice = useCallback(
+    (backend: BackendRuntimeStatus | undefined) => {
+      if (!backend || backend.active === "legacy-sql") {
+        conversationBackendNoticeRef.current = null;
+        return;
+      }
+
+      const noticeKey = `${backend.active}:${backend.configured}`;
+      if (conversationBackendNoticeRef.current === noticeKey) {
+        return;
+      }
+
+      conversationBackendNoticeRef.current = noticeKey;
+      setActionNotice(
+        `Conversations are running on ${backend.active}. Chat history is available, but persisted conversation cleanup still follows legacy-sql limits.`,
+        "warning",
+        5200,
+      );
+    },
+    [setActionNotice],
+  );
+
   // ── Conversations ───────────────────────────────────────────────────
 
   const loadConversations = useCallback(async (): Promise<
     Conversation[] | null
   > => {
     try {
-      const { conversations: c } = await client.listConversations();
+      const { conversations: c, backend } = await client.listConversations();
+      maybeSurfaceConversationBackendNotice(backend);
       setConversations(c);
       return c;
     } catch {
       return null;
     }
-  }, [setConversations]);
+  }, [maybeSurfaceConversationBackendNotice, setConversations]);
 
   const loadConversationMessages = useCallback(
     async (convId: string): Promise<LoadConversationMessagesResult> => {

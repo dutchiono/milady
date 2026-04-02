@@ -56,6 +56,8 @@ describe("Database API E2E (no runtime)", () => {
     it("returns disconnected status when no runtime", async () => {
       const { status, data } = await req(port, "GET", "/api/database/status");
       expect(status).toBe(200);
+      expect(data.backend.active).toBe("legacy-sql");
+      expect(data.backend.configured).toBe("legacy-sql");
       expect(data.provider).toBe("pglite");
       expect(data.connected).toBe(false);
       expect(data.serverVersion).toBeNull();
@@ -64,6 +66,7 @@ describe("Database API E2E (no runtime)", () => {
 
     it("has correct response shape", async () => {
       const { data } = await req(port, "GET", "/api/database/status");
+      expect(typeof data.backend).toBe("object");
       expect(typeof data.provider).toBe("string");
       expect(typeof data.connected).toBe("boolean");
       expect("serverVersion" in data).toBe(true);
@@ -80,6 +83,8 @@ describe("Database API E2E (no runtime)", () => {
       const { status, data } = await req(port, "GET", "/api/database/config");
       expect(status).toBe(200);
       expect(typeof data.config).toBe("object");
+      expect(typeof data.backendConfig).toBe("object");
+      expect(typeof data.activeBackend).toBe("string");
       expect(typeof data.activeProvider).toBe("string");
       expect(typeof data.needsRestart).toBe("boolean");
     });
@@ -88,6 +93,7 @@ describe("Database API E2E (no runtime)", () => {
       const { data } = await req(port, "GET", "/api/database/config");
       // No POSTGRES_URL set in test env → activeProvider should be pglite
       expect(data.activeProvider).toBe("pglite");
+      expect(data.activeBackend).toBe("legacy-sql");
     });
   });
 
@@ -112,6 +118,7 @@ describe("Database API E2E (no runtime)", () => {
       });
       expect(status).toBe(200);
       expect(data.saved).toBe(true);
+      expect(data.activeBackend).toBe("legacy-sql");
     });
 
     it("GET reflects saved PGLite config", async () => {
@@ -199,6 +206,41 @@ describe("Database API E2E (no runtime)", () => {
       });
       const { data } = await req(port, "GET", "/api/database/config");
       expect(data.needsRestart).toBe(false);
+    });
+
+    it("persists backend migration config alongside legacy database config", async () => {
+      const { status, data } = await req(port, "PUT", "/api/database/config", {
+        backend: {
+          kind: "convex",
+          convex: {
+            enabled: true,
+            url: "https://example.convex.cloud",
+            deployment: "dev:milady",
+            adminKey: "convex-secret",
+          },
+        },
+      });
+      expect(status).toBe(200);
+      expect(data.backend.configured).toBe("convex");
+      expect(data.backend.active).toBe("legacy-sql");
+      expect(data.backend.needsMigration).toBe(true);
+      expect(data.backend.convex.runtimeFlagEnabled).toBe(false);
+      expect(data.backend.convex.canActivate).toBe(false);
+
+      const getRes = await req(port, "GET", "/api/database/config");
+      expect(getRes.data.backendConfig.kind).toBe("convex");
+      expect(getRes.data.backendConfig.convex.url).toBe(
+        "https://example.convex.cloud",
+      );
+      expect(getRes.data.backendConfig.convex.adminKey).toBeUndefined();
+    });
+
+    it("rejects invalid backend kind", async () => {
+      const { status, data } = await req(port, "PUT", "/api/database/config", {
+        backend: { kind: "firebase" },
+      });
+      expect(status).toBe(400);
+      expect(data.error).toContain("Invalid backend kind");
     });
 
     it("rejects invalid provider", async () => {
@@ -333,6 +375,21 @@ describe("Database API E2E (no runtime)", () => {
       expect("durationMs" in data).toBe(true);
       expect(data.success).toBe(false);
       expect(data.serverVersion).toBeNull();
+    });
+
+    it("rejects incomplete Convex backend config", async () => {
+      const { status, data } = await req(port, "POST", "/api/database/test", {
+        backend: {
+          kind: "convex",
+          convex: {
+            enabled: true,
+            url: "https://example.convex.cloud",
+          },
+        },
+      });
+      expect(status).toBe(200);
+      expect(data.success).toBe(false);
+      expect(String(data.error)).toContain("deployment");
     });
 
     it("rejects connectionString host override to blocked targets", async () => {

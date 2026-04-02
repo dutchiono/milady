@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { AgentRuntime } from "@elizaos/core";
+import { logger, type AgentRuntime } from "@elizaos/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { req } from "../../../../test/helpers/http";
 import { startApiServer } from "./server";
@@ -429,6 +429,7 @@ describe("POST /api/agent/reset", () => {
     process.env.MILADY_API_TOKEN = "reset-token";
     const server = await startApiServer({ port: 0, runtime: RUNTIME_STUB });
     try {
+      const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
       const originalFetch = globalThis.fetch;
       const fetchSpy = vi
         .spyOn(globalThis, "fetch")
@@ -450,7 +451,16 @@ describe("POST /api/agent/reset", () => {
             method === "DELETE" &&
             url.pathname === "/api/conversations/conversation-1"
           ) {
-            return new Response(JSON.stringify({ ok: true }), { status: 200 });
+            return new Response(
+              JSON.stringify({
+                ok: true,
+                cleanup: {
+                  warning:
+                    "Conversation was removed locally, but persisted room cleanup is not supported by the active backend (convex).",
+                },
+              }),
+              { status: 200 },
+            );
           }
           if (method === "GET" && url.pathname === "/api/knowledge/documents") {
             return new Response(
@@ -505,9 +515,15 @@ describe("POST /api/agent/reset", () => {
             { pathname: "/api/trajectories", method: "DELETE" },
           ]),
         );
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining(
+            "Conversation conversation-1 cleared with backend warning",
+          ),
+        );
         await expect(fs.access(dbDir)).rejects.toThrow();
       } finally {
         fetchSpy.mockRestore();
+        warnSpy.mockRestore();
       }
     } finally {
       await server.close();

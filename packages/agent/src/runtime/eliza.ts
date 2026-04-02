@@ -65,6 +65,9 @@ import {
   type UUID,
 } from "@elizaos/core";
 import {
+  getConvexActivationStatus,
+  resolveConfiguredBackendKind,
+  resolveRequestedActiveBackend,
   isMiladySettingsDebugEnabled,
   settingsDebugCloudSummary,
 } from "@miladyai/shared";
@@ -105,7 +108,10 @@ import { collectConfigEnvVars } from "../config/env-vars";
 import { resolveServerOnlyPort } from "../config/runtime-env";
 import { resolveStateDir, resolveUserPath } from "../config/paths";
 import type { AgentConfig } from "../config/types.agents";
-import type { PluginInstallRecord } from "../config/types.eliza";
+import type {
+  DatabaseProviderType,
+  PluginInstallRecord,
+} from "../config/types.eliza";
 import {
   createHookEvent,
   type LoadHooksOptions,
@@ -1555,10 +1561,45 @@ function resolveDefaultPgliteDataDir(config: ElizaConfig): string {
   return path.join(resolveUserPath(workspaceDir), ".eliza", ".elizadb");
 }
 
+function resolveLegacyDatabaseProvider(config: ElizaConfig): DatabaseProviderType {
+  return config.database?.provider ?? "pglite";
+}
+
+/** @internal Exported for testing. */
+export function applyBackendConfigToEnv(config: ElizaConfig): void {
+  const backendKind = resolveConfiguredBackendKind(config.backend);
+  process.env.MILADY_BACKEND_KIND = backendKind;
+  process.env.MILADY_ACTIVE_BACKEND = resolveRequestedActiveBackend(
+    config.backend,
+    process.env,
+  );
+
+  const convex = config.backend?.convex;
+  if (backendKind === "convex" && convex) {
+    if (convex.url?.trim()) process.env.CONVEX_URL = convex.url.trim();
+    else delete process.env.CONVEX_URL;
+
+    if (convex.deployment?.trim()) {
+      process.env.CONVEX_DEPLOYMENT = convex.deployment.trim();
+    } else {
+      delete process.env.CONVEX_DEPLOYMENT;
+    }
+
+    if (convex.adminKey?.trim()) {
+      process.env.CONVEX_ADMIN_KEY = convex.adminKey.trim();
+    }
+    return;
+  }
+
+  delete process.env.CONVEX_URL;
+  delete process.env.CONVEX_DEPLOYMENT;
+  delete process.env.CONVEX_ADMIN_KEY;
+}
+
 /** @internal Exported for testing. */
 export function applyDatabaseConfigToEnv(config: ElizaConfig): void {
   const db = config.database;
-  const provider = db?.provider ?? "pglite";
+  const provider = resolveLegacyDatabaseProvider(config);
 
   if (provider === "postgres" && db?.postgres) {
     const pg = db.postgres;
@@ -2701,7 +2742,10 @@ export async function startEliza(
   // 2c. Propagate x402 config into process.env
   applyX402ConfigToEnv(config);
 
-  // 2d. Propagate database config into process.env for plugin-sql
+  // 2d. Propagate high-level backend config for migration-era wiring
+  applyBackendConfigToEnv(config);
+
+  // 2e. Propagate database config into process.env for plugin-sql
   applyDatabaseConfigToEnv(config);
 
   // 2e. Propagate arbitrary env vars from config.env into process.env.
@@ -2741,11 +2785,17 @@ export async function startEliza(
 
   // Log active database configuration for debugging persistence issues
   {
-    const dbProvider = config.database?.provider ?? "pglite";
+    const backendKind = resolveConfiguredBackendKind(config.backend);
+    const activeBackend = process.env.MILADY_ACTIVE_BACKEND ?? "legacy-sql";
+    const convexStatus = getConvexActivationStatus({
+      backend: config.backend,
+      env: process.env,
+    });
+    const dbProvider = resolveLegacyDatabaseProvider(config);
     const pgliteDir = process.env.PGLITE_DATA_DIR;
     const postgresUrl = process.env.POSTGRES_URL;
     logger.info(
-      `[eliza] Database provider: ${dbProvider}` +
+      `[eliza] Backend: ${backendKind} | active: ${activeBackend} | database provider: ${dbProvider}` +
         (dbProvider === "pglite" && pgliteDir
           ? ` | data dir: ${pgliteDir}`
           : "") +
@@ -2753,6 +2803,15 @@ export async function startEliza(
           ? ` | connection: ${postgresUrl.replace(/:\/\/([^:]+):([^@]+)@/, "://$1:***@")}`
           : ""),
     );
+    if (backendKind === "convex" && activeBackend !== "convex") {
+      const blocker =
+        convexStatus.missing.length > 0
+          ? `missing ${convexStatus.missing.join(", ")}`
+          : convexStatus.runtimeFlagEnabled
+            ? "activation unavailable"
+            : "set MILADY_ENABLE_EXPERIMENTAL_CONVEX_RUNTIME=1";
+      logger.warn(`[eliza] Convex configured but inactive: ${blocker}`);
+    }
   }
 
   // 2d-iii. OG tracking code initialization

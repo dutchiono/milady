@@ -1130,6 +1130,29 @@ describe("Auth + agent lifecycle", () => {
     );
     expect(s2).toBe(200);
   });
+
+  it("persists managed backend secrets through /api/secrets", async () => {
+    const { status: putStatus, data: putData } = await req(
+      port,
+      "PUT",
+      "/api/secrets",
+      {
+        secrets: {
+          CONVEX_ADMIN_KEY: "convex-test-secret",
+        },
+      },
+      auth,
+    );
+    expect(putStatus).toBe(200);
+    expect(putData.updated).toContain("CONVEX_ADMIN_KEY");
+
+    const raw = fs.readFileSync(process.env.ELIZA_CONFIG_PATH!, "utf-8");
+    const persisted = JSON.parse(raw) as {
+      env?: Record<string, string>;
+    };
+    expect(persisted.env?.CONVEX_ADMIN_KEY).toBe("convex-test-secret");
+    expect(process.env.CONVEX_ADMIN_KEY).toBe("convex-test-secret");
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

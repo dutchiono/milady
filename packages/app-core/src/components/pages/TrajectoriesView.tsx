@@ -5,6 +5,7 @@
 
 import {
   client,
+  type TrajectoryConfig,
   type TrajectoryListResult,
   type TrajectoryRecord,
 } from "@miladyai/app-core/api";
@@ -60,6 +61,26 @@ interface TrajectoriesViewProps {
   onSelectTrajectory?: (id: string | null) => void;
 }
 
+export function getTrajectoryPersistenceBlockedMessage(
+  config: TrajectoryConfig | null,
+): string | null {
+  if (!config || config.backend.capabilities.trajectoryPersistence !== false) {
+    return null;
+  }
+
+  if (config.backend.active === "convex") {
+    if (config.backend.convex.missing.includes("adminKey")) {
+      return "Convex trajectory persistence is blocked until CONVEX_ADMIN_KEY is added in Secrets.";
+    }
+
+    if (config.backend.convex.missing.length > 0) {
+      return `Convex trajectory persistence is blocked until ${config.backend.convex.missing.join(", ")} is configured.`;
+    }
+  }
+
+  return `Trajectory persistence is unavailable while the active backend is ${config.backend.active}. Configured backend: ${config.backend.configured}.`;
+}
+
 export function TrajectoriesView({
   contentHeader,
   selectedTrajectoryId = null,
@@ -68,6 +89,7 @@ export function TrajectoriesView({
   const { t } = useApp();
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<TrajectoryListResult | null>(null);
+  const [config, setConfig] = useState<TrajectoryConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -75,6 +97,19 @@ export function TrajectoriesView({
   const pageSize = 50;
 
   const [exporting, setExporting] = useState(false);
+
+  const trajectoryPersistenceSupported =
+    config?.backend.capabilities.trajectoryPersistence !== false;
+  const blockedMessage = getTrajectoryPersistenceBlockedMessage(config);
+
+  const loadTrajectoryConfig = useCallback(async () => {
+    try {
+      const nextConfig = await client.getTrajectoryConfig();
+      setConfig(nextConfig);
+    } catch {
+      setConfig(null);
+    }
+  }, []);
 
   const loadTrajectories = useCallback(async () => {
     setLoading(true);
@@ -112,6 +147,10 @@ export function TrajectoriesView({
   useEffect(() => {
     void loadTrajectories();
   }, [loadTrajectories]);
+
+  useEffect(() => {
+    void loadTrajectoryConfig();
+  }, [loadTrajectoryConfig]);
 
   const handleExport = async (
     format: "json" | "csv" | "zip",
@@ -210,7 +249,11 @@ export function TrajectoriesView({
                     size="sm"
                     type="button"
                     className="h-9 rounded-full px-4 text-[11px] font-bold tracking-[0.12em]"
-                    disabled={exporting || trajectories.length === 0}
+                    disabled={
+                      exporting ||
+                      trajectories.length === 0 ||
+                      !trajectoryPersistenceSupported
+                    }
                   >
                     {exporting ? t("common.exporting") : t("common.export")}
                   </Button>
@@ -372,6 +415,12 @@ export function TrajectoriesView({
             </PagePanel.Notice>
           ) : null}
 
+          {blockedMessage ? (
+            <PagePanel.Notice tone="warning" className="mb-4">
+              {blockedMessage}
+            </PagePanel.Notice>
+          ) : null}
+
           {loading && trajectories.length === 0 ? (
             <PagePanel.Loading
               variant="surface"
@@ -382,13 +431,21 @@ export function TrajectoriesView({
               variant="surface"
               className="min-h-[14rem] rounded-[1.6rem]"
               title={
-                hasActiveFilters
+                !trajectoryPersistenceSupported
+                  ? "Trajectory persistence unavailable"
+                  : hasActiveFilters
                   ? t("trajectoriesview.NoTrajectoriesMatchingFilters")
                   : t("trajectoriesview.NoTrajectoriesYet")
               }
+              description={!trajectoryPersistenceSupported ? blockedMessage ?? undefined : undefined}
             />
           ) : detailTrajectoryId ? (
-            <TrajectoryDetailView trajectoryId={detailTrajectoryId} />
+            <TrajectoryDetailView
+              trajectoryId={detailTrajectoryId}
+              backendSupportsPersistence={trajectoryPersistenceSupported}
+              backendLabel={config?.backend.active ?? null}
+              backendUnavailableMessage={blockedMessage}
+            />
           ) : null}
         </div>
       </PagePanel>

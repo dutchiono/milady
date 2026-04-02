@@ -410,6 +410,8 @@ export interface HyperscapeQuickActionsResponse {
 }
 
 // Trajectories
+import type { BackendRuntimeStatus } from "@miladyai/shared";
+
 export interface TrajectoryRecord {
   id: string;
   agentId: string;
@@ -497,6 +499,7 @@ export interface TrajectoryStats {
 
 export interface TrajectoryConfig {
   enabled: boolean;
+  backend: BackendRuntimeStatus;
 }
 
 export interface TrajectoryExportOptions {

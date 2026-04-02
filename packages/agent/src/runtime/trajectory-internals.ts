@@ -17,6 +17,7 @@ import {
   ModelType,
   logger as coreLogger,
 } from "@elizaos/core";
+import { detectActiveBackend, type BackendKind } from "@miladyai/shared";
 
 import type {
   TrajectoryStatus,
@@ -102,6 +103,11 @@ export type CompleteStepOptions = {
   status?: TrajectoryStatus;
   source?: string;
   metadata?: Record<string, unknown>;
+};
+
+export type TrajectoryPersistenceAvailability = {
+  activeBackend: BackendKind;
+  supported: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -498,6 +504,14 @@ export function getRuntimeDb(runtime: IAgentRuntime): RuntimeDb | null {
 
 export function hasRuntimeDb(runtime: IAgentRuntime): boolean {
   return Boolean(getRuntimeDb(runtime));
+}
+
+export function getTrajectoryPersistenceAvailability(): TrajectoryPersistenceAvailability {
+  const activeBackend = detectActiveBackend(process.env);
+  return {
+    activeBackend,
+    supported: activeBackend === "legacy-sql",
+  };
 }
 
 export async function executeRawSql(

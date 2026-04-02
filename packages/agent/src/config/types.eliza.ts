@@ -1,5 +1,8 @@
 import type { SessionConfig, SessionSendPolicyConfig } from "@elizaos/core";
 import type {
+  BackendConfig,
+  BackendConvexConfig,
+  BackendKind,
   CustomActionDef,
   DatabaseProviderType,
   MediaConfig,
@@ -22,6 +25,9 @@ import type {
 import type { ToolsConfig } from "./types.tools";
 
 export type {
+  BackendConfig,
+  BackendConvexConfig,
+  BackendKind,
   AudioElevenlabsSfxConfig,
   AudioGenConfig,
   AudioGenProvider,
@@ -741,6 +747,8 @@ export type ElizaConfig = {
   memory?: MemoryConfig;
   /** Local embedding model configuration (Metal GPU, idle unloading, model selection). */
   embedding?: EmbeddingConfig;
+  /** High-level backend selection used during the Convex migration. */
+  backend?: BackendConfig;
   /** Database provider and connection configuration (local-only feature). */
   database?: DatabaseConfig;
   /** Eliza Cloud integration for remote agent provisioning and inference. */

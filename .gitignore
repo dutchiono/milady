@@ -165,3 +165,5 @@ docs/tutorials/captures/
 
 # Agent skill files — per-user, not committed
 .agents/skills/
+convex/_generated/
+convex/.env.local

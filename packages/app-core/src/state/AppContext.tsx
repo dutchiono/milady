@@ -1073,6 +1073,7 @@ function AppProviderInner({
     setConversations,
     setActiveConversationId,
     setConversationMessages,
+    setActionNotice,
     loadWalletConfig,
     agentStatus,
     characterData,

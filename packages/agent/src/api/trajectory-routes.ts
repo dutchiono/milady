@@ -14,6 +14,8 @@
 
 import type http from "node:http";
 import type { AgentRuntime } from "@elizaos/core";
+import { buildBackendRuntimeStatus, normalizeBackendConfig } from "@miladyai/shared";
+import { loadElizaConfig } from "../config/config";
 import {
   readJsonBody as parseJsonBody,
   sendJson,
@@ -36,6 +38,20 @@ import type {
 } from "../types/trajectory";
 
 export type { TrajectoryExportFormat };
+
+function resolveLegacyDatabaseProvider(): "pglite" | "postgres" {
+  const config = loadElizaConfig();
+  return config.database?.provider ?? "pglite";
+}
+
+function buildTrajectoryBackendStatus() {
+  const config = loadElizaConfig();
+  return buildBackendRuntimeStatus({
+    backend: normalizeBackendConfig(config.backend),
+    env: process.env,
+    legacyProvider: resolveLegacyDatabaseProvider(),
+  });
+}
 
 interface TrajectoryLoggerApi {
   isEnabled(): boolean;
@@ -710,6 +726,7 @@ async function handleGetConfig(
 
   sendJson(res, {
     enabled: logger.isEnabled(),
+    backend: buildTrajectoryBackendStatus(),
   });
 }
 
@@ -733,6 +750,7 @@ async function handlePutConfig(
 
   sendJson(res, {
     enabled: logger.isEnabled(),
+    backend: buildTrajectoryBackendStatus(),
   });
 }
 

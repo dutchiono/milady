@@ -77,4 +77,37 @@ describe("SecretsView picker keyboard behavior", () => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
   });
+
+  it("shows the Convex secret guidance in the vault header", async () => {
+    mockGetSecrets.mockResolvedValue({
+      secrets: [
+        {
+          key: "CONVEX_ADMIN_KEY",
+          description: "Convex admin key",
+          category: "auth",
+          sensitive: true,
+          required: true,
+          isSet: false,
+          maskedValue: null,
+          usedBy: [
+            {
+              pluginId: "convex-backend",
+              pluginName: "Convex Backend",
+              enabled: true,
+            },
+          ],
+        },
+      ],
+    });
+
+    render(<SecretsView />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          /Using the Convex backend requires CONVEX_ADMIN_KEY in Secrets/i,
+        ),
+      ).toBeTruthy();
+    });
+  });
 });

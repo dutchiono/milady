@@ -28,13 +28,17 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { WebSocket } from "ws";
 import { startApiServer } from "../src/api/server";
 import {
+  createDatabaseTrajectoryLogger,
+  flushTrajectoryWrites,
+} from "../src/runtime";
+import {
   resolveStylePresetByAvatarIndex,
   resolveStylePresetById,
 } from "../src/onboarding-presets";
 import { agentAutoDailyTrades } from "../src/api/trade-safety";
 import { AGENT_NAME_POOL } from "../src/runtime/onboarding-names";
 import { req } from "../../../test/helpers/http";
-import { createDeferred } from "../../../test/helpers/test-utils";
+import { createDeferred, saveEnv } from "../../../test/helpers/test-utils";
 
 vi.mock("../src/services/mcp-marketplace", () => ({
   searchMcpMarketplace: vi
@@ -1583,7 +1587,18 @@ describe("API Server E2E (no runtime)", () => {
     });
 
     it("POST /api/chat/stream emits token and done events", async () => {
-      const runtime = createRuntimeForChatSseTests();
+      const runtime = createRuntimeForChatSseTests() as AgentRuntime & {
+        deleteManyMemories?: unknown;
+        deleteMemory?: unknown;
+        removeMemory?: unknown;
+        deleteRoom?: unknown;
+        adapter?: unknown;
+      };
+      delete runtime.deleteManyMemories;
+      delete runtime.deleteMemory;
+      delete runtime.removeMemory;
+      delete runtime.deleteRoom;
+      runtime.adapter = {};
       const streamServer = await startApiServer({ port: 0, runtime });
       try {
         const { status, headers, events } = await reqSse(
@@ -1859,6 +1874,7 @@ describe("API Server E2E (no runtime)", () => {
 
         const response = await listPromise;
         expect(response.status).toBe(200);
+        expect(response.data.backend.active).toBe("legacy-sql");
         expect(response.data.conversations).toEqual([
           expect.objectContaining({
             id: restoredConversationId,
@@ -2220,12 +2236,82 @@ describe("API Server E2E (no runtime)", () => {
           `/api/conversations/${conversationId}`,
         );
         expect(remove.status).toBe(200);
+        expect(remove.data.ok).toBe(true);
+        expect(remove.data.cleanup.deletedMessages).toBeGreaterThan(0);
+        expect(remove.data.cleanup.deletedRoom).toBe(true);
+        expect(remove.data.cleanup.warning).toBeNull();
         expect(deletedMemoryBatches.some((batch) => batch.length > 0)).toBe(
           true,
         );
         expect(deletedRooms).toContain(conversationRoomId);
       } finally {
         await streamServer.close();
+      }
+    });
+
+    it("DELETE /api/conversations/:id reports backend cleanup warnings when persisted deletion is unsupported", async () => {
+      const envBackup = saveEnv(
+        "ELIZA_CONFIG_PATH",
+        "MILADY_ACTIVE_BACKEND",
+        "MILADY_ENABLE_EXPERIMENTAL_CONVEX_RUNTIME",
+        "CONVEX_ADMIN_KEY",
+      );
+      const tmpConfigDir = await fs.mkdtemp(
+        path.join(os.tmpdir(), "milady-convex-conversations-"),
+      );
+      process.env.ELIZA_CONFIG_PATH = path.join(tmpConfigDir, "eliza.json");
+      process.env.MILADY_ACTIVE_BACKEND = "convex";
+      process.env.MILADY_ENABLE_EXPERIMENTAL_CONVEX_RUNTIME = "1";
+      process.env.CONVEX_ADMIN_KEY = "convex-test-secret";
+      await fs.writeFile(
+        process.env.ELIZA_CONFIG_PATH,
+        JSON.stringify(
+          {
+            backend: {
+              kind: "convex",
+              convex: {
+                enabled: true,
+                url: "https://example.convex.cloud",
+                deployment: "dev:milady",
+              },
+            },
+            database: { provider: "pglite" },
+          },
+          null,
+          2,
+        ),
+        "utf-8",
+      );
+
+      const runtime = createRuntimeForChatSseTests();
+      const streamServer = await startApiServer({ port: 0, runtime });
+      try {
+        const create = await req(streamServer.port, "POST", "/api/conversations", {
+          title: "Convex cleanup warning",
+          includeGreeting: true,
+          lang: "en",
+        });
+        expect(create.status).toBe(200);
+        const conversation = create.data.conversation as { id?: string };
+        const conversationId = conversation.id ?? "";
+        expect(conversationId.length).toBeGreaterThan(0);
+
+        const remove = await req(
+          streamServer.port,
+          "DELETE",
+          `/api/conversations/${conversationId}`,
+        );
+        expect(remove.status).toBe(200);
+        expect(remove.data.ok).toBe(true);
+        expect(remove.data.backend.active).toBe("convex");
+        expect(remove.data.cleanup.supported).toBe(false);
+        expect(String(remove.data.cleanup.warning)).toContain(
+          "persisted room cleanup",
+        );
+      } finally {
+        await streamServer.close();
+        envBackup.restore();
+        await fs.rm(tmpConfigDir, { recursive: true, force: true });
       }
     });
 
@@ -2919,6 +3005,10 @@ describe("API Server E2E (no runtime)", () => {
         );
         expect(before.status).toBe(200);
         expect(before.data.enabled).toBe(false);
+        expect(before.data.backend.active).toBeTruthy();
+        expect(before.data.backend.capabilities.trajectoryPersistence).toBe(
+          true,
+        );
 
         const enabledUpdate = await req(
           streamServer.port,
@@ -2928,6 +3018,7 @@ describe("API Server E2E (no runtime)", () => {
         );
         expect(enabledUpdate.status).toBe(200);
         expect(enabledUpdate.data.enabled).toBe(true);
+        expect(enabledUpdate.data.backend.active).toBeTruthy();
         expect(enabled).toBe(true);
 
         const disabledUpdate = await req(
@@ -2938,11 +3029,566 @@ describe("API Server E2E (no runtime)", () => {
         );
         expect(disabledUpdate.status).toBe(200);
         expect(disabledUpdate.data.enabled).toBe(false);
+        expect(disabledUpdate.data.backend.capabilities.trajectoryPersistence).toBe(
+          true,
+        );
         expect(enabled).toBe(false);
         expect(setEnabledCalls).toEqual([true, false]);
       } finally {
         await streamServer.close();
       }
+    });
+  });
+
+  describe("trajectory endpoints (convex backend)", () => {
+    const trajectoryFunctionPaths = {
+      listTrajectories: "trajectories:list",
+      getTrajectoryDetail: "trajectories:get",
+      getTrajectoryStats: "trajectories:stats",
+      startTrajectory: "trajectories:start",
+      completeTrajectory: "trajectories:complete",
+      appendLlmCall: "trajectories:appendLlmCall",
+      appendProviderAccess: "trajectories:appendProviderAccess",
+      deleteTrajectories: "trajectories:deleteTrajectories",
+      clearAllTrajectories: "trajectories:clearAll",
+    } as const;
+
+    type MockConvexStep = {
+      stepId: string;
+      timestamp: number;
+      llmCalls: Array<Record<string, unknown>>;
+      providerAccesses: Array<Record<string, unknown>>;
+    };
+
+    type MockConvexTrajectory = {
+      trajectoryId: string;
+      agentId: string;
+      source: string;
+      status: string;
+      startTime: number;
+      endTime: number | null;
+      durationMs: number | null;
+      metadata: Record<string, unknown>;
+      steps: MockConvexStep[];
+    };
+
+    let envBackup: { restore: () => void };
+    let tmpConfigDir: string;
+    let streamServer: Awaited<ReturnType<typeof startApiServer>>;
+    let runtime: AgentRuntime & { adapter?: unknown };
+    let trajectoryLogger: ReturnType<typeof createDatabaseTrajectoryLogger>;
+    let convexStore: Map<string, MockConvexTrajectory>;
+
+    function createConvexConfig() {
+      return {
+        env: {},
+        backend: {
+          kind: "convex",
+          convex: {
+            enabled: true,
+            url: "https://example.convex.cloud",
+            deployment: "dev:milady",
+            trajectory: trajectoryFunctionPaths,
+          },
+        },
+        database: {
+          provider: "pglite",
+        },
+      };
+    }
+
+    function getOrCreateTrajectory(args: Record<string, unknown>) {
+      const stepId = String(args.stepId ?? "");
+      const existing = convexStore.get(stepId);
+      if (existing) return existing;
+
+      const timestamp =
+        typeof args.timestamp === "number" ? args.timestamp : Date.now();
+      const created: MockConvexTrajectory = {
+        trajectoryId: stepId,
+        agentId: String(args.agentId ?? "chat-stream-agent"),
+        source: String(args.source ?? "chat"),
+        status: "active",
+        startTime: timestamp,
+        endTime: null,
+        durationMs: null,
+        metadata:
+          typeof args.metadata === "object" && args.metadata
+            ? { ...(args.metadata as Record<string, unknown>) }
+            : {},
+        steps: [
+          {
+            stepId,
+            timestamp,
+            llmCalls: [],
+            providerAccesses: [],
+          },
+        ],
+      };
+      convexStore.set(stepId, created);
+      return created;
+    }
+
+    function toListItem(trajectory: MockConvexTrajectory) {
+      const llmCalls = trajectory.steps.flatMap((step) => step.llmCalls);
+      const providerAccesses = trajectory.steps.flatMap(
+        (step) => step.providerAccesses,
+      );
+      return {
+        id: trajectory.trajectoryId,
+        trajectoryId: trajectory.trajectoryId,
+        agentId: trajectory.agentId,
+        source: trajectory.source,
+        status: trajectory.status,
+        startTime: trajectory.startTime,
+        endTime: trajectory.endTime,
+        durationMs: trajectory.durationMs,
+        stepCount: trajectory.steps.length,
+        llmCallCount: llmCalls.length,
+        providerAccessCount: providerAccesses.length,
+        totalPromptTokens: llmCalls.reduce(
+          (sum, call) => sum + Number(call.promptTokens ?? 0),
+          0,
+        ),
+        totalCompletionTokens: llmCalls.reduce(
+          (sum, call) => sum + Number(call.completionTokens ?? 0),
+          0,
+        ),
+        createdAt: new Date(trajectory.startTime).toISOString(),
+        metadata: trajectory.metadata,
+      };
+    }
+
+    function toDetail(trajectory: MockConvexTrajectory) {
+      return {
+        trajectoryId: trajectory.trajectoryId,
+        agentId: trajectory.agentId,
+        startTime: trajectory.startTime,
+        endTime: trajectory.endTime,
+        durationMs: trajectory.durationMs,
+        steps: trajectory.steps,
+        metrics: {
+          finalStatus: trajectory.status,
+        },
+        metadata: trajectory.metadata,
+      };
+    }
+
+    async function seedConvexTrajectory(suffix: string) {
+      const stepId = await trajectoryLogger.startTrajectory(
+        `convex-${suffix}`,
+        {
+          source: "chat",
+          metadata: { scenario: suffix },
+        },
+      );
+
+      trajectoryLogger.logLlmCall({
+        stepId,
+        model: "claude-sonnet-4-20250514",
+        systemPrompt: "You are a concise assistant.",
+        userPrompt: `prompt ${suffix}`,
+        response: `response ${suffix}`,
+        temperature: 0.1,
+        maxTokens: 256,
+        purpose: "action",
+        actionType: "runtime.useModel",
+        latencyMs: 42,
+        timestamp: Date.now(),
+        promptTokens: 12,
+        completionTokens: 18,
+      });
+
+      trajectoryLogger.logProviderAccess({
+        stepId,
+        providerId: "weather-provider",
+        providerName: "WeatherAPI",
+        purpose: "compose_state",
+        data: { city: "NYC" },
+        query: { prompt: suffix },
+        timestamp: Date.now(),
+      });
+
+      await trajectoryLogger.endTrajectory(stepId, "completed");
+      await flushTrajectoryWrites(runtime);
+      return stepId;
+    }
+
+    beforeAll(async () => {
+      envBackup = saveEnv(
+        "ELIZA_CONFIG_PATH",
+        "MILADY_ENABLE_EXPERIMENTAL_CONVEX_RUNTIME",
+        "MILADY_ACTIVE_BACKEND",
+        "CONVEX_ADMIN_KEY",
+      );
+      tmpConfigDir = await fs.mkdtemp(
+        path.join(os.tmpdir(), "milady-convex-routes-"),
+      );
+      process.env.ELIZA_CONFIG_PATH = path.join(tmpConfigDir, "eliza.json");
+      process.env.MILADY_ENABLE_EXPERIMENTAL_CONVEX_RUNTIME = "1";
+      process.env.MILADY_ACTIVE_BACKEND = "convex";
+      process.env.CONVEX_ADMIN_KEY = "convex-test-secret";
+      await fs.writeFile(
+        process.env.ELIZA_CONFIG_PATH,
+        JSON.stringify(createConvexConfig(), null, 2),
+        "utf-8",
+      );
+
+      convexStore = new Map();
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
+          const headers = new Headers(init?.headers);
+          if (headers.get("authorization") !== "Convex convex-test-secret") {
+            return new Response(
+              JSON.stringify({ errorMessage: "Unauthorized" }),
+              { status: 401, headers: { "content-type": "application/json" } },
+            );
+          }
+
+          const body =
+            typeof init?.body === "string"
+              ? JSON.parse(init.body)
+              : { path: "", args: {} };
+          const args =
+            body && typeof body.args === "object" && body.args
+              ? (body.args as Record<string, unknown>)
+              : {};
+          const pathName = String(body?.path ?? "");
+
+          if (pathName === trajectoryFunctionPaths.startTrajectory) {
+            getOrCreateTrajectory(args);
+            return new Response(JSON.stringify({ status: "success", value: null }), {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            });
+          }
+
+          if (pathName === trajectoryFunctionPaths.appendLlmCall) {
+            const trajectory = getOrCreateTrajectory(args);
+            const payload =
+              typeof args.payload === "object" && args.payload
+                ? (args.payload as Record<string, unknown>)
+                : {};
+            trajectory.steps[0].llmCalls.push({
+              callId:
+                String(payload.callId ?? `${trajectory.trajectoryId}-call-1`),
+              stepId: trajectory.trajectoryId,
+              timestamp:
+                typeof payload.timestamp === "number"
+                  ? payload.timestamp
+                  : Date.now(),
+              model: String(payload.model ?? "unknown"),
+              systemPrompt: String(payload.systemPrompt ?? ""),
+              userPrompt: String(payload.userPrompt ?? payload.input ?? ""),
+              response: String(payload.response ?? ""),
+              temperature: Number(payload.temperature ?? 0),
+              maxTokens: Number(payload.maxTokens ?? 0),
+              purpose: String(payload.purpose ?? "action"),
+              actionType: String(payload.actionType ?? "runtime.useModel"),
+              latencyMs: Number(payload.latencyMs ?? 0),
+              promptTokens: Number(payload.promptTokens ?? 0),
+              completionTokens: Number(payload.completionTokens ?? 0),
+            });
+            return new Response(JSON.stringify({ status: "success", value: null }), {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            });
+          }
+
+          if (pathName === trajectoryFunctionPaths.appendProviderAccess) {
+            const trajectory = getOrCreateTrajectory(args);
+            const payload =
+              typeof args.payload === "object" && args.payload
+                ? (args.payload as Record<string, unknown>)
+                : {};
+            trajectory.steps[0].providerAccesses.push({
+              id: String(payload.accessId ?? `${trajectory.trajectoryId}-provider-1`),
+              stepId: trajectory.trajectoryId,
+              providerName: String(payload.providerName ?? payload.providerId ?? "unknown"),
+              purpose: String(payload.purpose ?? "compose_state"),
+              data:
+                typeof payload.data === "object" && payload.data
+                  ? (payload.data as Record<string, unknown>)
+                  : {},
+              query:
+                typeof payload.query === "object" && payload.query
+                  ? (payload.query as Record<string, unknown>)
+                  : {},
+              timestamp:
+                typeof payload.timestamp === "number"
+                  ? payload.timestamp
+                  : Date.now(),
+            });
+            return new Response(JSON.stringify({ status: "success", value: null }), {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            });
+          }
+
+          if (pathName === trajectoryFunctionPaths.completeTrajectory) {
+            const trajectory = getOrCreateTrajectory(args);
+            const timestamp =
+              typeof args.timestamp === "number" ? args.timestamp : Date.now();
+            trajectory.status = String(args.status ?? "completed");
+            trajectory.endTime = timestamp;
+            trajectory.durationMs = Math.max(0, timestamp - trajectory.startTime);
+            if (typeof args.metadata === "object" && args.metadata) {
+              trajectory.metadata = {
+                ...trajectory.metadata,
+                ...(args.metadata as Record<string, unknown>),
+              };
+            }
+            return new Response(JSON.stringify({ status: "success", value: null }), {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            });
+          }
+
+          if (pathName === trajectoryFunctionPaths.listTrajectories) {
+            const offset = Math.max(0, Number(args.offset ?? 0));
+            const limit = Math.max(1, Math.min(500, Number(args.limit ?? 50)));
+            const trajectories = Array.from(convexStore.values())
+              .filter((trajectory) => trajectory.agentId === String(args.agentId ?? ""))
+              .sort((a, b) => b.startTime - a.startTime);
+            const page = trajectories.slice(offset, offset + limit).map(toListItem);
+            return new Response(
+              JSON.stringify({
+                status: "success",
+                value: {
+                  trajectories: page,
+                  total: trajectories.length,
+                  offset,
+                  limit,
+                },
+              }),
+              {
+                status: 200,
+                headers: { "content-type": "application/json" },
+              },
+            );
+          }
+
+          if (pathName === trajectoryFunctionPaths.getTrajectoryDetail) {
+            const trajectory = convexStore.get(String(args.trajectoryId ?? ""));
+            return new Response(
+              JSON.stringify({
+                status: "success",
+                value: trajectory ? toDetail(trajectory) : null,
+              }),
+              {
+                status: 200,
+                headers: { "content-type": "application/json" },
+              },
+            );
+          }
+
+          if (pathName === trajectoryFunctionPaths.getTrajectoryStats) {
+            const trajectories = Array.from(convexStore.values()).filter(
+              (trajectory) => trajectory.agentId === String(args.agentId ?? ""),
+            );
+            const totals = trajectories.map(toListItem);
+            return new Response(
+              JSON.stringify({
+                status: "success",
+                value: {
+                  total: trajectories.length,
+                  totalTrajectories: trajectories.length,
+                  totalSteps: totals.reduce(
+                    (sum, trajectory) => sum + Number(trajectory.stepCount ?? 0),
+                    0,
+                  ),
+                  totalLlmCalls: totals.reduce(
+                    (sum, trajectory) => sum + Number(trajectory.llmCallCount ?? 0),
+                    0,
+                  ),
+                  totalPromptTokens: totals.reduce(
+                    (sum, trajectory) =>
+                      sum + Number(trajectory.totalPromptTokens ?? 0),
+                    0,
+                  ),
+                  totalCompletionTokens: totals.reduce(
+                    (sum, trajectory) =>
+                      sum + Number(trajectory.totalCompletionTokens ?? 0),
+                    0,
+                  ),
+                  byStatus: { completed: trajectories.length },
+                  bySource: { chat: trajectories.length },
+                },
+              }),
+              {
+                status: 200,
+                headers: { "content-type": "application/json" },
+              },
+            );
+          }
+
+          if (pathName === trajectoryFunctionPaths.deleteTrajectories) {
+            const ids = Array.isArray(args.trajectoryIds)
+              ? args.trajectoryIds.map((id) => String(id))
+              : [];
+            let deleted = 0;
+            for (const id of ids) {
+              if (convexStore.delete(id)) deleted += 1;
+            }
+            return new Response(
+              JSON.stringify({ status: "success", value: { deleted } }),
+              {
+                status: 200,
+                headers: { "content-type": "application/json" },
+              },
+            );
+          }
+
+          if (pathName === trajectoryFunctionPaths.clearAllTrajectories) {
+            const deleted = convexStore.size;
+            convexStore.clear();
+            return new Response(
+              JSON.stringify({ status: "success", value: { deleted } }),
+              {
+                status: 200,
+                headers: { "content-type": "application/json" },
+              },
+            );
+          }
+
+          return new Response(
+            JSON.stringify({ errorMessage: `Unhandled Convex path: ${pathName}` }),
+            { status: 404, headers: { "content-type": "application/json" } },
+          );
+        }) as typeof fetch,
+      );
+
+      runtime = createRuntimeForChatSseTests({
+        getService: (serviceType) =>
+          serviceType === "trajectory_logger" ? trajectoryLogger : null,
+        getServicesByType: (serviceType) =>
+          serviceType === "trajectory_logger" ? [trajectoryLogger] : [],
+      }) as AgentRuntime & { adapter?: unknown };
+      runtime.adapter = {};
+      trajectoryLogger = createDatabaseTrajectoryLogger(runtime);
+      trajectoryLogger.setEnabled(true);
+      streamServer = await startApiServer({ port: 0, runtime });
+    });
+
+    afterAll(async () => {
+      await streamServer.close();
+      vi.unstubAllGlobals();
+      envBackup.restore();
+      await fs.rm(tmpConfigDir, { recursive: true, force: true });
+    });
+
+    it("serves convex-backed trajectory routes and makes deletes immediately visible", async () => {
+      const stepId = await seedConvexTrajectory("route-proof");
+
+      const list = await req(
+        streamServer.port,
+        "GET",
+        "/api/trajectories?limit=10",
+      );
+      expect(list.status).toBe(200);
+      expect(list.data.total).toBe(1);
+      const row = (list.data.trajectories as Array<Record<string, unknown>>)[0];
+      expect(row?.id).toBe(stepId);
+      expect(row?.llmCallCount).toBe(1);
+      expect(row?.providerAccessCount).toBe(1);
+
+      const detail = await req(
+        streamServer.port,
+        "GET",
+        `/api/trajectories/${encodeURIComponent(stepId)}`,
+      );
+      expect(detail.status).toBe(200);
+      expect(detail.data.trajectory.id).toBe(stepId);
+      expect((detail.data.llmCalls as unknown[]).length).toBe(1);
+      expect((detail.data.providerAccesses as unknown[]).length).toBe(1);
+
+      const stats = await req(streamServer.port, "GET", "/api/trajectories/stats");
+      expect(stats.status).toBe(200);
+      expect(stats.data.total).toBe(1);
+      expect(stats.data.totalLlmCalls).toBe(1);
+
+      const deleted = await req(
+        streamServer.port,
+        "DELETE",
+        "/api/trajectories",
+        { trajectoryIds: [stepId] },
+      );
+      expect(deleted.status).toBe(200);
+      expect(deleted.data.deleted).toBe(1);
+
+      const missing = await req(
+        streamServer.port,
+        "GET",
+        `/api/trajectories/${encodeURIComponent(stepId)}`,
+      );
+      expect(missing.status).toBe(404);
+
+      const listAfterDelete = await req(
+        streamServer.port,
+        "GET",
+        "/api/trajectories?limit=10",
+      );
+      expect(listAfterDelete.status).toBe(200);
+      expect(listAfterDelete.data.total).toBe(0);
+    });
+
+    it("supports clear-all and exposes convex capability state through /api/trajectories/config", async () => {
+      await seedConvexTrajectory("clear-a");
+      await seedConvexTrajectory("clear-b");
+
+      const configBefore = await req(
+        streamServer.port,
+        "GET",
+        "/api/trajectories/config",
+      );
+      expect(configBefore.status).toBe(200);
+      expect(configBefore.data.backend.active).toBe("convex");
+      expect(configBefore.data.backend.capabilities.trajectoryPersistence).toBe(
+        true,
+      );
+
+      const clearAll = await req(
+        streamServer.port,
+        "DELETE",
+        "/api/trajectories",
+        { clearAll: true },
+      );
+      expect(clearAll.status).toBe(200);
+      expect(clearAll.data.deleted).toBe(2);
+
+      delete process.env.CONVEX_ADMIN_KEY;
+      const blocked = await req(
+        streamServer.port,
+        "GET",
+        "/api/trajectories/config",
+      );
+      expect(blocked.status).toBe(200);
+      expect(blocked.data.backend.active).toBe("convex");
+      expect(blocked.data.backend.capabilities.trajectoryPersistence).toBe(
+        false,
+      );
+      expect(blocked.data.backend.convex.missing).toContain("adminKey");
+
+      process.env.CONVEX_ADMIN_KEY = "convex-test-secret";
+      const toggle = await req(
+        streamServer.port,
+        "PUT",
+        "/api/trajectories/config",
+        { enabled: false },
+      );
+      expect(toggle.status).toBe(200);
+      expect(toggle.data.enabled).toBe(false);
+
+      const restored = await req(
+        streamServer.port,
+        "GET",
+        "/api/trajectories/config",
+      );
+      expect(restored.status).toBe(200);
+      expect(restored.data.backend.capabilities.trajectoryPersistence).toBe(
+        true,
+      );
     });
   });
 

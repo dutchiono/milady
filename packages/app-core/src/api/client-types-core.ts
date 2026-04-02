@@ -3,7 +3,12 @@
 // Re-exports from external packages included here.
 // ---------------------------------------------------------------------------
 
-import type { DatabaseProviderType } from "@miladyai/agent/contracts/config";
+import type {
+  BackendConfig,
+  BackendKind,
+  DatabaseProviderType,
+} from "@miladyai/agent/contracts/config";
+import type { BackendRuntimeStatus } from "@miladyai/shared";
 
 export type { StreamEventType } from "@miladyai/agent/api/server";
 export type {
@@ -14,6 +19,7 @@ export type {
 export type { TrajectoryExportFormat } from "@miladyai/agent/api/trajectory-routes";
 
 export interface DatabaseStatus {
+  backend: BackendRuntimeStatus;
   provider: DatabaseProviderType;
   connected: boolean;
   serverVersion: string | null;
@@ -36,6 +42,9 @@ export interface DatabaseConfigResponse {
       ssl?: boolean;
     };
   };
+  backendConfig: BackendConfig;
+  backend: BackendRuntimeStatus;
+  activeBackend: BackendKind;
   activeProvider: DatabaseProviderType;
   needsRestart: boolean;
 }

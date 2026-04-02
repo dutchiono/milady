@@ -23,6 +23,18 @@ import type {
 } from "../types/trajectory";
 
 import {
+  appendConvexTrajectoryLlmCall,
+  appendConvexTrajectoryProviderAccess,
+  clearAllConvexTrajectories,
+  completeConvexTrajectory,
+  deleteConvexTrajectories,
+  getConvexTrajectoryDetail,
+  getConvexTrajectoryStats,
+  isConvexTrajectoryPersistenceConfigured,
+  listConvexTrajectories,
+  startConvexTrajectory,
+} from "./trajectory-convex";
+import {
   type BufferedExchange,
   type CompleteStepOptions,
   type PersistedLlmCall,
@@ -37,6 +49,7 @@ import {
   executeRawSql,
   extractInsightsFromResponse,
   extractRows,
+  getTrajectoryPersistenceAvailability,
   hasRuntimeDb,
   lastWritePromises,
   loadTrajectoryById,
@@ -69,6 +82,124 @@ import {
 
 // Re-export types needed by consumers
 export type { StartStepOptions, CompleteStepOptions } from "./trajectory-internals";
+
+function supportsSqlTrajectoryPersistence(): boolean {
+  return getTrajectoryPersistenceAvailability().supported;
+}
+
+function supportsConvexTrajectoryPersistence(): boolean {
+  const availability = getTrajectoryPersistenceAvailability();
+  return (
+    availability.activeBackend === "convex" &&
+    isConvexTrajectoryPersistenceConfigured()
+  );
+}
+
+function hasTrajectoryPersistenceSupport(): boolean {
+  return (
+    supportsSqlTrajectoryPersistence() || supportsConvexTrajectoryPersistence()
+  );
+}
+
+async function appendTrajectoryLlmCall(
+  runtime: IAgentRuntime,
+  stepId: string,
+  params: Record<string, unknown>,
+): Promise<void> {
+  if (shouldSuppressNoInputEmbeddingCall(params)) return;
+  if (supportsSqlTrajectoryPersistence()) {
+    await appendLlmCall(runtime, stepId, params);
+    return;
+  }
+  if (supportsConvexTrajectoryPersistence()) {
+    await appendConvexTrajectoryLlmCall(runtime, stepId, params);
+  }
+}
+
+async function appendTrajectoryProviderAccess(
+  runtime: IAgentRuntime,
+  stepId: string,
+  params: Record<string, unknown>,
+): Promise<void> {
+  if (supportsSqlTrajectoryPersistence()) {
+    await appendProviderAccess(runtime, stepId, params);
+    return;
+  }
+  if (supportsConvexTrajectoryPersistence()) {
+    await appendConvexTrajectoryProviderAccess(runtime, stepId, params);
+  }
+}
+
+async function writeStartedTrajectoryStepForBackend(
+  options: StartStepOptions,
+): Promise<void> {
+  if (supportsSqlTrajectoryPersistence()) {
+    await writeStartedTrajectoryStep(options);
+    return;
+  }
+  if (supportsConvexTrajectoryPersistence()) {
+    await startConvexTrajectory(options.runtime, {
+      stepId: options.stepId,
+      source: options.source,
+      metadata: options.metadata,
+    });
+  }
+}
+
+async function writeCompletedTrajectoryStepForBackend(
+  options: CompleteStepOptions,
+): Promise<void> {
+  if (supportsSqlTrajectoryPersistence()) {
+    await writeCompletedTrajectoryStep(options);
+    return;
+  }
+  if (supportsConvexTrajectoryPersistence()) {
+    await completeConvexTrajectory(options.runtime, {
+      stepId: options.stepId,
+      status: options.status ?? "completed",
+      source: options.source,
+      metadata: options.metadata,
+    });
+  }
+}
+
+async function listTrajectoriesForBackend(
+  runtime: IAgentRuntime,
+  options: TrajectoryListOptions = {},
+): Promise<TrajectoryListResult> {
+  if (supportsSqlTrajectoryPersistence()) {
+    throw new Error("SQL trajectory persistence should use the local adapter.");
+  }
+  if (supportsConvexTrajectoryPersistence()) {
+    return listConvexTrajectories(runtime, options);
+  }
+  return { trajectories: [], total: 0, offset: 0, limit: options.limit ?? 50 };
+}
+
+async function getTrajectoryDetailForBackend(
+  runtime: IAgentRuntime,
+  trajectoryId: string,
+): Promise<Trajectory | null> {
+  if (supportsSqlTrajectoryPersistence()) {
+    throw new Error("SQL trajectory persistence should use the local adapter.");
+  }
+  if (supportsConvexTrajectoryPersistence()) {
+    return getConvexTrajectoryDetail(runtime, trajectoryId);
+  }
+  return null;
+}
+
+async function getTrajectoryStatsForBackend(
+  runtime: IAgentRuntime,
+): Promise<unknown> {
+  if (supportsSqlTrajectoryPersistence()) {
+    throw new Error("SQL trajectory persistence should use the local adapter.");
+  }
+  if (supportsConvexTrajectoryPersistence()) {
+    return getConvexTrajectoryStats(runtime);
+  }
+  return { total: 0, byStatus: {}, bySource: {} };
+}
 
 // ---------------------------------------------------------------------------
 // appendLlmCall / appendProviderAccess
@@ -267,6 +398,13 @@ async function writeCompletedTrajectoryStep({
 export async function installDatabaseTrajectoryLogger(
   runtime: IAgentRuntime,
 ): Promise<void> {
+  if (!hasTrajectoryPersistenceSupport()) {
+    const { activeBackend } = getTrajectoryPersistenceAvailability();
+    console.warn(
+      `[trajectory-persistence] installDatabaseTrajectoryLogger: backend "${activeBackend}" does not support trajectory persistence`,
+    );
+    return;
+  }
   if (!hasRuntimeDb(runtime)) {
     console.warn(
       "[trajectory-persistence] installDatabaseTrajectoryLogger: no database adapter found on runtime",
@@ -338,9 +476,11 @@ export async function installDatabaseTrajectoryLogger(
       runtime,
       normalized.stepId,
       async () => {
-        const tableReady = await ensureTrajectoriesTable(runtime);
-        if (!tableReady) return;
-        await appendLlmCall(runtime, normalized.stepId, normalized.params);
+        if (supportsSqlTrajectoryPersistence()) {
+          const tableReady = await ensureTrajectoriesTable(runtime);
+          if (!tableReady) return;
+        }
+        await appendTrajectoryLlmCall(runtime, normalized.stepId, normalized.params);
       },
     );
     const runtimeKey = runtime as unknown as object;
@@ -363,13 +503,11 @@ export async function installDatabaseTrajectoryLogger(
       runtime,
       normalized.stepId,
       async () => {
-        const tableReady = await ensureTrajectoriesTable(runtime);
-        if (!tableReady) return;
-        await appendProviderAccess(
-          runtime,
-          normalized.stepId,
-          normalized.params,
-        );
+        if (supportsSqlTrajectoryPersistence()) {
+          const tableReady = await ensureTrajectoriesTable(runtime);
+          if (!tableReady) return;
+        }
+        await appendTrajectoryProviderAccess(runtime, normalized.stepId, normalized.params);
       },
     );
     const runtimeKey = runtime as unknown as object;
@@ -418,10 +556,12 @@ export async function installDatabaseTrajectoryLogger(
       : `step-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     const writePromise = enqueueStepWrite(runtime, stepId, async () => {
-      const tableReady = await ensureTrajectoriesTable(runtime);
-      if (!tableReady) return;
+      if (supportsSqlTrajectoryPersistence()) {
+        const tableReady = await ensureTrajectoriesTable(runtime);
+        if (!tableReady) return;
+      }
 
-      await writeStartedTrajectoryStep({
+      await writeStartedTrajectoryStepForBackend({
         runtime,
         stepId,
         source: options?.source ?? "chat",
@@ -447,10 +587,12 @@ export async function installDatabaseTrajectoryLogger(
       runtime,
       stepIdOrTrajectoryId,
       async () => {
-        const tableReady = await ensureTrajectoriesTable(runtime);
-        if (!tableReady) return;
+        if (supportsSqlTrajectoryPersistence()) {
+          const tableReady = await ensureTrajectoriesTable(runtime);
+          if (!tableReady) return;
+        }
 
-        await writeCompletedTrajectoryStep({
+        await writeCompletedTrajectoryStepForBackend({
           runtime,
           stepId: stepIdOrTrajectoryId,
           status: status as TrajectoryStatus,
@@ -466,6 +608,12 @@ export async function installDatabaseTrajectoryLogger(
   loggerAny.listTrajectories = async (
     options: TrajectoryListOptions = {},
   ): Promise<TrajectoryListResult> => {
+    if (supportsConvexTrajectoryPersistence()) {
+      return listTrajectoriesForBackend(runtime, options);
+    }
+    if (!supportsSqlTrajectoryPersistence()) {
+      return { trajectories: [], total: 0, offset: 0, limit: 50 };
+    }
     if (!hasRuntimeDb(runtime)) {
       return { trajectories: [], total: 0, offset: 0, limit: 50 };
     }
@@ -562,6 +710,10 @@ export async function installDatabaseTrajectoryLogger(
   loggerAny.getTrajectoryDetail = async (
     trajectoryId: string,
   ): Promise<Trajectory | null> => {
+    if (supportsConvexTrajectoryPersistence()) {
+      return getTrajectoryDetailForBackend(runtime, trajectoryId);
+    }
+    if (!supportsSqlTrajectoryPersistence()) return null;
     if (!hasRuntimeDb(runtime)) return null;
 
     const tableReady = await ensureTrajectoriesTable(runtime);
@@ -602,6 +754,10 @@ export async function installDatabaseTrajectoryLogger(
       byModel: {},
     };
 
+    if (supportsConvexTrajectoryPersistence()) {
+      return getTrajectoryStatsForBackend(runtime);
+    }
+    if (!supportsSqlTrajectoryPersistence()) return emptyStats;
     if (!hasRuntimeDb(runtime)) return emptyStats;
 
     const tableReady = await ensureTrajectoriesTable(runtime);
@@ -763,9 +919,11 @@ export async function installDatabaseTrajectoryLogger(
 
   patchedLoggers.add(loggerObject);
 
-  void ensureTrajectoriesTable(runtime).catch((err) => {
-    coreLogger.warn(`[trajectory] Trajectories table init failed: ${err}`);
-  });
+  if (supportsSqlTrajectoryPersistence()) {
+    void ensureTrajectoriesTable(runtime).catch((err) => {
+      coreLogger.warn(`[trajectory] Trajectories table init failed: ${err}`);
+    });
+  }
 }
 
 export async function startTrajectoryStepInDatabase({
@@ -774,6 +932,20 @@ export async function startTrajectoryStepInDatabase({
   source,
   metadata,
 }: StartStepOptions): Promise<boolean> {
+  if (supportsConvexTrajectoryPersistence()) {
+    const normalizedStepId = normalizeStepId(stepId);
+    if (!normalizedStepId) return false;
+    await enqueueStepWrite(runtime, normalizedStepId, async () => {
+      await writeStartedTrajectoryStepForBackend({
+        runtime,
+        stepId: normalizedStepId,
+        source,
+        metadata,
+      });
+    });
+    return true;
+  }
+  if (!supportsSqlTrajectoryPersistence()) return false;
   if (!hasRuntimeDb(runtime)) return false;
   const normalizedStepId = normalizeStepId(stepId);
   if (!normalizedStepId) return false;
@@ -800,6 +972,21 @@ export async function completeTrajectoryStepInDatabase({
   source,
   metadata,
 }: CompleteStepOptions): Promise<boolean> {
+  if (supportsConvexTrajectoryPersistence()) {
+    const normalizedStepId = normalizeStepId(stepId);
+    if (!normalizedStepId) return false;
+    await enqueueStepWrite(runtime, normalizedStepId, async () => {
+      await writeCompletedTrajectoryStepForBackend({
+        runtime,
+        stepId: normalizedStepId,
+        status,
+        source,
+        metadata,
+      });
+    });
+    return true;
+  }
+  if (!supportsSqlTrajectoryPersistence()) return false;
   if (!hasRuntimeDb(runtime)) return false;
   const normalizedStepId = normalizeStepId(stepId);
   if (!normalizedStepId) return false;
@@ -824,6 +1011,10 @@ export async function deletePersistedTrajectoryRows(
   runtime: IAgentRuntime,
   trajectoryIds: string[],
 ): Promise<number | null> {
+  if (supportsConvexTrajectoryPersistence()) {
+    return deleteConvexTrajectories(runtime, trajectoryIds);
+  }
+  if (!supportsSqlTrajectoryPersistence()) return 0;
   if (!hasRuntimeDb(runtime)) return null;
   const tableReady = await ensureTrajectoriesTable(runtime);
   if (!tableReady) return 0;
@@ -856,6 +1047,10 @@ export async function deletePersistedTrajectoryRows(
 export async function clearPersistedTrajectoryRows(
   runtime: IAgentRuntime,
 ): Promise<number | null> {
+  if (supportsConvexTrajectoryPersistence()) {
+    return clearAllConvexTrajectories(runtime);
+  }
+  if (!supportsSqlTrajectoryPersistence()) return 0;
   if (!hasRuntimeDb(runtime)) return null;
   const tableReady = await ensureTrajectoriesTable(runtime);
   if (!tableReady) return 0;
@@ -920,6 +1115,8 @@ export class DatabaseTrajectoryLogger extends Service {
   }
 
   async initialize(): Promise<void> {
+    if (supportsConvexTrajectoryPersistence()) return;
+    if (!supportsSqlTrajectoryPersistence()) return;
     if (hasRuntimeDb(this.runtime)) {
       await ensureTrajectoriesTable(this.runtime);
       // Fire-and-forget TTL pruning on startup
@@ -959,6 +1156,25 @@ export class DatabaseTrajectoryLogger extends Service {
       metadata?: Record<string, unknown>;
     },
   ): Promise<string> {
+    if (supportsConvexTrajectoryPersistence()) {
+      if (!this.enabled) return stepIdOrAgentId;
+      const isLegacySignature = typeof options?.agentId === "string";
+      const stepId = isLegacySignature
+        ? stepIdOrAgentId
+        : `step-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const writePromise = enqueueStepWrite(this.runtime, stepId, async () => {
+        await writeStartedTrajectoryStepForBackend({
+          runtime: this.runtime,
+          stepId,
+          source: options?.source ?? "chat",
+          metadata: options?.metadata,
+        });
+      });
+      const runtimeKey = this.runtime as unknown as object;
+      lastWritePromises.set(runtimeKey, writePromise);
+      return stepId;
+    }
+    if (!supportsSqlTrajectoryPersistence()) return stepIdOrAgentId;
     if (!this.enabled) return stepIdOrAgentId;
 
     const isLegacySignature = typeof options?.agentId === "string";
@@ -992,6 +1208,24 @@ export class DatabaseTrajectoryLogger extends Service {
     stepIdOrTrajectoryId: string,
     status: TrajectoryStatus = "completed",
   ): Promise<void> {
+    if (supportsConvexTrajectoryPersistence()) {
+      if (!this.enabled) return;
+      const writePromise = enqueueStepWrite(
+        this.runtime,
+        stepIdOrTrajectoryId,
+        async () => {
+          await writeCompletedTrajectoryStepForBackend({
+            runtime: this.runtime,
+            stepId: stepIdOrTrajectoryId,
+            status,
+          });
+        },
+      );
+      const runtimeKey = this.runtime as unknown as object;
+      lastWritePromises.set(runtimeKey, writePromise);
+      return;
+    }
+    if (!supportsSqlTrajectoryPersistence()) return;
     if (!this.enabled) return;
 
     const writePromise = enqueueStepWrite(
@@ -1014,6 +1248,26 @@ export class DatabaseTrajectoryLogger extends Service {
   }
 
   logLlmCall(params: Record<string, unknown>): void {
+    if (supportsConvexTrajectoryPersistence()) {
+      if (!this.enabled) return;
+      const normalized = normalizeLlmCallPayload([params]);
+      if (!normalized) return;
+      const writePromise = enqueueStepWrite(
+        this.runtime,
+        normalized.stepId,
+        async () => {
+          await appendTrajectoryLlmCall(
+            this.runtime,
+            normalized.stepId,
+            normalized.params,
+          );
+        },
+      );
+      const runtimeKey = this.runtime as unknown as object;
+      lastWritePromises.set(runtimeKey, writePromise);
+      return;
+    }
+    if (!supportsSqlTrajectoryPersistence()) return;
     if (!this.enabled) return;
     const normalized = normalizeLlmCallPayload([params]);
     if (!normalized) return;
@@ -1032,6 +1286,26 @@ export class DatabaseTrajectoryLogger extends Service {
   }
 
   logProviderAccess(params: Record<string, unknown>): void {
+    if (supportsConvexTrajectoryPersistence()) {
+      if (!this.enabled) return;
+      const normalized = normalizeProviderAccessPayload([params]);
+      if (!normalized) return;
+      const writePromise = enqueueStepWrite(
+        this.runtime,
+        normalized.stepId,
+        async () => {
+          await appendTrajectoryProviderAccess(
+            this.runtime,
+            normalized.stepId,
+            normalized.params,
+          );
+        },
+      );
+      const runtimeKey = this.runtime as unknown as object;
+      lastWritePromises.set(runtimeKey, writePromise);
+      return;
+    }
+    if (!supportsSqlTrajectoryPersistence()) return;
     if (!this.enabled) return;
     const normalized = normalizeProviderAccessPayload([params]);
     if (!normalized) return;
@@ -1064,6 +1338,12 @@ export class DatabaseTrajectoryLogger extends Service {
   async listTrajectories(
     options: TrajectoryListOptions,
   ): Promise<TrajectoryListResult> {
+    if (supportsConvexTrajectoryPersistence()) {
+      return listTrajectoriesForBackend(this.runtime, options);
+    }
+    if (!supportsSqlTrajectoryPersistence()) {
+      return { trajectories: [], total: 0, offset: 0, limit: 50 };
+    }
     if (!hasRuntimeDb(this.runtime)) {
       return { trajectories: [], total: 0, offset: 0, limit: 50 };
     }
@@ -1158,6 +1438,10 @@ export class DatabaseTrajectoryLogger extends Service {
   }
 
   async getTrajectoryDetail(trajectoryId: string): Promise<Trajectory | null> {
+    if (supportsConvexTrajectoryPersistence()) {
+      return getTrajectoryDetailForBackend(this.runtime, trajectoryId);
+    }
+    if (!supportsSqlTrajectoryPersistence()) return null;
     if (!hasRuntimeDb(this.runtime)) return null;
 
     const tableReady = await ensureTrajectoriesTable(this.runtime);
@@ -1187,6 +1471,12 @@ export class DatabaseTrajectoryLogger extends Service {
   }
 
   async getStats(): Promise<unknown> {
+    if (supportsConvexTrajectoryPersistence()) {
+      return getTrajectoryStatsForBackend(this.runtime);
+    }
+    if (!supportsSqlTrajectoryPersistence()) {
+      return { total: 0, byStatus: {}, bySource: {} };
+    }
     if (!hasRuntimeDb(this.runtime)) {
       return { total: 0, byStatus: {}, bySource: {} };
     }
@@ -1354,6 +1644,8 @@ export async function pruneOldTrajectories(
   runtime: IAgentRuntime,
   maxAgeDays = 30,
 ): Promise<number | null> {
+  if (supportsConvexTrajectoryPersistence()) return 0;
+  if (!supportsSqlTrajectoryPersistence()) return 0;
   if (!hasRuntimeDb(runtime)) return null;
   const tableReady = await ensureTrajectoriesTable(runtime);
   if (!tableReady) return 0;

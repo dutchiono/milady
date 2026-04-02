@@ -1227,7 +1227,29 @@ export async function startMockApiServer(
       return;
     }
     if (method === "GET" && pathname === "/api/trajectories/config") {
-      json(res, 200, { enabled: true });
+      json(res, 200, {
+        enabled: true,
+        backend: {
+          configured: "legacy-sql",
+          active: "legacy-sql",
+          needsMigration: false,
+          legacyProvider: "pglite",
+          capabilities: {
+            databaseBrowser: true,
+            sqlQuery: true,
+            trajectoryPersistence: true,
+          },
+          convex: {
+            enabled: false,
+            url: null,
+            deployment: null,
+            hasAdminKey: false,
+            runtimeFlagEnabled: false,
+            canActivate: false,
+            missing: ["enabled", "url", "deployment", "adminKey"],
+          },
+        },
+      });
       return;
     }
     if (
@@ -1235,7 +1257,29 @@ export async function startMockApiServer(
       pathname === "/api/trajectories/config"
     ) {
       await readJson(req);
-      json(res, 200, { enabled: true });
+      json(res, 200, {
+        enabled: true,
+        backend: {
+          configured: "legacy-sql",
+          active: "legacy-sql",
+          needsMigration: false,
+          legacyProvider: "pglite",
+          capabilities: {
+            databaseBrowser: true,
+            sqlQuery: true,
+            trajectoryPersistence: true,
+          },
+          convex: {
+            enabled: false,
+            url: null,
+            deployment: null,
+            hasAdminKey: false,
+            runtimeFlagEnabled: false,
+            canActivate: false,
+            missing: ["enabled", "url", "deployment", "adminKey"],
+          },
+        },
+      });
       return;
     }
     if (method === "DELETE" && pathname === "/api/trajectories") {
@@ -1286,6 +1330,26 @@ export async function startMockApiServer(
 
     if (method === "GET" && pathname === "/api/database/status") {
       json(res, 200, {
+        backend: {
+          configured: "legacy-sql",
+          active: "legacy-sql",
+          needsMigration: false,
+          legacyProvider: "pglite",
+          capabilities: {
+            databaseBrowser: true,
+            sqlQuery: true,
+            trajectoryPersistence: true,
+          },
+          convex: {
+            enabled: false,
+            url: null,
+            deployment: null,
+            hasAdminKey: false,
+            runtimeFlagEnabled: false,
+            canActivate: false,
+            missing: ["enabled", "url", "deployment", "adminKey"],
+          },
+        },
         provider: "pglite",
         connected: true,
         serverVersion: "16.0",
@@ -1306,6 +1370,28 @@ export async function startMockApiServer(
     if (method === "GET" && pathname === "/api/database/config") {
       json(res, 200, {
         config: {},
+        backendConfig: { kind: "legacy-sql" },
+        backend: {
+          configured: "legacy-sql",
+          active: "legacy-sql",
+          needsMigration: false,
+          legacyProvider: "pglite",
+          capabilities: {
+            databaseBrowser: true,
+            sqlQuery: true,
+            trajectoryPersistence: true,
+          },
+          convex: {
+            enabled: false,
+            url: null,
+            deployment: null,
+            hasAdminKey: false,
+            runtimeFlagEnabled: false,
+            canActivate: false,
+            missing: ["enabled", "url", "deployment", "adminKey"],
+          },
+        },
+        activeBackend: "legacy-sql",
         activeProvider: "pglite",
         needsRestart: false,
       });

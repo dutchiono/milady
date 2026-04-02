@@ -794,6 +794,59 @@ export const ElizaSchema = z
       })
       .strict()
       .optional(),
+    backend: z
+      .object({
+        kind: z.union([z.literal("legacy-sql"), z.literal("convex")]).optional(),
+        convex: z
+          .object({
+            enabled: z.boolean().optional(),
+            url: z.string().optional(),
+            deployment: z.string().optional(),
+            adminKey: z.string().optional(),
+            trajectory: z
+              .object({
+                listTrajectories: z.string().optional(),
+                getTrajectoryDetail: z.string().optional(),
+                getTrajectoryStats: z.string().optional(),
+                startTrajectory: z.string().optional(),
+                completeTrajectory: z.string().optional(),
+                appendLlmCall: z.string().optional(),
+                appendProviderAccess: z.string().optional(),
+                deleteTrajectories: z.string().optional(),
+                clearAllTrajectories: z.string().optional(),
+              })
+              .strict()
+              .optional(),
+          })
+          .strict()
+          .optional(),
+      })
+      .strict()
+      .optional(),
+    database: z
+      .object({
+        provider: z.union([z.literal("pglite"), z.literal("postgres")]).optional(),
+        pglite: z
+          .object({
+            dataDir: z.string().optional(),
+          })
+          .strict()
+          .optional(),
+        postgres: z
+          .object({
+            connectionString: z.string().optional(),
+            host: z.string().optional(),
+            port: z.number().int().positive().optional(),
+            database: z.string().optional(),
+            user: z.string().optional(),
+            password: z.string().optional(),
+            ssl: z.boolean().optional(),
+          })
+          .strict()
+          .optional(),
+      })
+      .strict()
+      .optional(),
     skills: z
       .object({
         allowBundled: z.array(z.string()).optional(),

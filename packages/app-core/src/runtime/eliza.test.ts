@@ -59,6 +59,7 @@ import { CONNECTOR_IDS } from "../config/schema";
 // resolveElizaPluginImportSpecifier.
 import * as _elizaExports from "./eliza";
 import {
+  applyBackendConfigToEnv,
   applyCloudConfigToEnv,
   applyConnectorSecretsToEnv,
   applyDatabaseConfigToEnv,
@@ -1304,6 +1305,76 @@ describe("applyDatabaseConfigToEnv", () => {
     expect(process.env.POSTGRES_URL).toBe(
       "postgresql://admin:secret@db.example.test:5433/eliza?sslmode=require",
     );
+  });
+});
+
+describe("applyBackendConfigToEnv", () => {
+  const snap = envSnapshot([
+    "MILADY_BACKEND_KIND",
+    "MILADY_ACTIVE_BACKEND",
+    "MILADY_ENABLE_EXPERIMENTAL_CONVEX_RUNTIME",
+    "CONVEX_URL",
+    "CONVEX_DEPLOYMENT",
+    "CONVEX_ADMIN_KEY",
+  ]);
+
+  beforeEach(() => {
+    snap.save();
+    delete process.env.MILADY_BACKEND_KIND;
+    delete process.env.MILADY_ACTIVE_BACKEND;
+    delete process.env.CONVEX_URL;
+    delete process.env.CONVEX_DEPLOYMENT;
+    delete process.env.CONVEX_ADMIN_KEY;
+  });
+
+  afterEach(() => {
+    snap.restore();
+  });
+
+  it("defaults to legacy-sql", () => {
+    applyBackendConfigToEnv({} as ElizaConfig);
+    expect(process.env.MILADY_BACKEND_KIND).toBe("legacy-sql");
+    expect(process.env.MILADY_ACTIVE_BACKEND).toBe("legacy-sql");
+  });
+
+  it("sets convex env only when rollout flag and config allow activation", () => {
+    process.env.MILADY_ENABLE_EXPERIMENTAL_CONVEX_RUNTIME = "1";
+    applyBackendConfigToEnv({
+      backend: {
+        kind: "convex",
+        convex: {
+          enabled: true,
+          url: "https://example.convex.cloud",
+          deployment: "dev:milady",
+          adminKey: "secret",
+        },
+      },
+    } as ElizaConfig);
+
+    expect(process.env.MILADY_BACKEND_KIND).toBe("convex");
+    expect(process.env.MILADY_ACTIVE_BACKEND).toBe("convex");
+    expect(process.env.CONVEX_URL).toBe("https://example.convex.cloud");
+    expect(process.env.CONVEX_DEPLOYMENT).toBe("dev:milady");
+    expect(process.env.CONVEX_ADMIN_KEY).toBe("secret");
+  });
+
+  it("preserves an env-provided convex admin key when backend config omits it", () => {
+    process.env.MILADY_ENABLE_EXPERIMENTAL_CONVEX_RUNTIME = "1";
+    process.env.CONVEX_ADMIN_KEY = "env-secret";
+
+    applyBackendConfigToEnv({
+      backend: {
+        kind: "convex",
+        convex: {
+          enabled: true,
+          url: "https://example.convex.cloud",
+          deployment: "dev:milady",
+        },
+      },
+    } as ElizaConfig);
+
+    expect(process.env.MILADY_ACTIVE_BACKEND).toBe("convex");
+    expect(process.env.CONVEX_ADMIN_KEY).toBe("env-secret");
   });
 });
 

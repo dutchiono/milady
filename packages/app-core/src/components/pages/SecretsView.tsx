@@ -73,6 +73,14 @@ function groupSecretsByCategory(secrets: SecretInfo[]): GroupedSecrets[] {
   );
 }
 
+export function getConvexSecretsNotice(secrets: SecretInfo[]): string | null {
+  const convexSecret = secrets.find((secret) => secret.key === "CONVEX_ADMIN_KEY");
+  if (!convexSecret) return null;
+  return convexSecret.isSet
+    ? "Convex backend credentials are managed here. Keep CONVEX_ADMIN_KEY in Secrets rather than the backend config form."
+    : "Using the Convex backend requires CONVEX_ADMIN_KEY in Secrets. Add it here rather than in the backend config form.";
+}
+
 /* ── Persistence ────────────────────────────────────────────────────── */
 
 function loadPinnedKeys(): Set<string> {
@@ -142,6 +150,10 @@ export function SecretsView({
   const vaultSecrets = useMemo(() => {
     return allSecrets.filter((s) => pinnedKeys.has(s.key) || s.isSet);
   }, [allSecrets, pinnedKeys]);
+  const convexSecretsNotice = useMemo(
+    () => getConvexSecretsNotice(allSecrets),
+    [allSecrets],
+  );
 
   // Available secrets not in the vault (for the picker)
   const availableSecrets = useMemo(() => {
@@ -265,7 +277,9 @@ export function SecretsView({
     <ContentLayout contentHeader={contentHeader} inModal={inModal}>
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="m-0 max-w-2xl text-[13px] leading-6 text-muted" />
+        <div className="m-0 max-w-2xl text-[13px] leading-6 text-muted">
+          {convexSecretsNotice}
+        </div>
         <Button
           variant="default"
           size="sm"

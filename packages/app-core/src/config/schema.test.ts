@@ -7,7 +7,13 @@ describe("config schema", () => {
     const schema = res.schema as { properties?: Record<string, unknown> };
     expect(schema.properties?.gateway).toBeTruthy();
     expect(schema.properties?.agents).toBeTruthy();
+    expect(schema.properties?.backend).toBeTruthy();
     expect(res.uiHints.gateway?.label).toBe("Gateway");
+    expect(res.uiHints.backend?.label).toBe("Backend");
+    expect(res.uiHints["backend.kind"]?.label).toBe("Backend Kind");
+    expect(
+      res.uiHints["backend.convex.trajectory.listTrajectories"]?.label,
+    ).toBe("Convex Trajectory List Function");
     expect(res.uiHints["gateway.auth.token"]?.sensitive).toBe(true);
     expect(res.version).toBeTruthy();
     expect(res.generatedAt).toBeTruthy();

@@ -416,6 +416,16 @@ export interface SecretEntry {
   usedBy: Array<{ pluginId: string; pluginName: string; enabled: boolean }>;
 }
 
+type ManagedSecretDef = {
+  key: string;
+  description: string;
+  pluginId: string;
+  pluginName: string;
+  category?: string;
+  isEnabled: (config: ElizaConfig) => boolean;
+  isRequired: (config: ElizaConfig) => boolean;
+};
+
 const AI_PROVIDERS = new Set([
   "OPENAI",
   "ANTHROPIC",
@@ -483,42 +493,115 @@ export function inferSecretCategory(key: string): string {
   return "other";
 }
 
-export function aggregateSecrets(plugins: PluginEntry[]): SecretEntry[] {
+const MANAGED_SECRETS: ManagedSecretDef[] = [
+  {
+    key: "CONVEX_ADMIN_KEY",
+    description:
+      "Convex admin key used for server-to-server backend queries and mutations.",
+    pluginId: "convex-backend",
+    pluginName: "Convex Backend",
+    category: "auth",
+    isEnabled: () => true,
+    isRequired: (config) => config.backend?.kind === "convex",
+  },
+];
+
+function readSecretValue(
+  config: ElizaConfig | undefined,
+  key: string,
+): string | undefined {
+  const configured = config?.env?.[key];
+  if (typeof configured === "string" && configured.trim()) {
+    return configured;
+  }
+  const envValue = process.env[key];
+  return typeof envValue === "string" && envValue.trim() ? envValue : undefined;
+}
+
+function upsertSecretEntry(
+  map: Map<string, SecretEntry>,
+  params: {
+    key: string;
+    description: string;
+    category: string;
+    required: boolean;
+    isSet: boolean;
+    maskedValue: string | null;
+    usedBy: { pluginId: string; pluginName: string; enabled: boolean };
+  },
+) {
+  const existing = map.get(params.key);
+  if (existing) {
+    existing.usedBy.push(params.usedBy);
+    if (params.required && params.usedBy.enabled) existing.required = true;
+    if (!existing.isSet && params.isSet) {
+      existing.isSet = true;
+      existing.maskedValue = params.maskedValue;
+    }
+    return;
+  }
+
+  map.set(params.key, {
+    key: params.key,
+    description: params.description,
+    category: params.category,
+    sensitive: true,
+    required: params.required && params.usedBy.enabled,
+    isSet: params.isSet,
+    maskedValue: params.maskedValue,
+    usedBy: [params.usedBy],
+  });
+}
+
+export function aggregateSecrets(
+  plugins: PluginEntry[],
+  config?: ElizaConfig,
+): SecretEntry[] {
   const map = new Map<string, SecretEntry>();
 
   for (const plugin of plugins) {
     for (const param of plugin.parameters) {
       if (!param.sensitive) continue;
 
-      const existing = map.get(param.key);
-      if (existing) {
-        existing.usedBy.push({
+      const value = readSecretValue(config, param.key);
+      const isSet = Boolean(value?.trim());
+      upsertSecretEntry(map, {
+        key: param.key,
+        description: param.description || inferDescription(param.key),
+        category: inferSecretCategory(param.key),
+        required: param.required,
+        isSet,
+        maskedValue: isSet ? maskValue(value ?? "") : null,
+        usedBy: {
           pluginId: plugin.id,
           pluginName: plugin.name,
           enabled: plugin.enabled,
-        });
-        // Only mark required if an *enabled* plugin requires it
-        if (param.required && plugin.enabled) existing.required = true;
-      } else {
-        const envValue = process.env[param.key];
-        const isSet = Boolean(envValue?.trim());
-        map.set(param.key, {
-          key: param.key,
-          description: param.description || inferDescription(param.key),
-          category: inferSecretCategory(param.key),
-          sensitive: true,
-          required: param.required && plugin.enabled,
-          isSet,
-          maskedValue: isSet ? maskValue(envValue ?? "") : null,
-          usedBy: [
-            {
-              pluginId: plugin.id,
-              pluginName: plugin.name,
-              enabled: plugin.enabled,
-            },
-          ],
-        });
-      }
+        },
+      });
+    }
+  }
+
+  if (config) {
+    for (const managedSecret of MANAGED_SECRETS) {
+      const value = readSecretValue(config, managedSecret.key);
+      const isSet = Boolean(value?.trim());
+      const enabled = managedSecret.isEnabled(config) || isSet;
+      if (!enabled) continue;
+
+      upsertSecretEntry(map, {
+        key: managedSecret.key,
+        description: managedSecret.description,
+        category:
+          managedSecret.category ?? inferSecretCategory(managedSecret.key),
+        required: managedSecret.isRequired(config),
+        isSet,
+        maskedValue: isSet ? maskValue(value ?? "") : null,
+        usedBy: {
+          pluginId: managedSecret.pluginId,
+          pluginName: managedSecret.pluginName,
+          enabled,
+        },
+      });
     }
   }
 
@@ -1165,4 +1248,3 @@ export function readBundledPluginPackageMetadata(
     };
   }
 }
-

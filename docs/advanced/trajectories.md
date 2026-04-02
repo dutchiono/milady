@@ -54,3 +54,40 @@ The detail view for an individual trajectory shows:
 | GET | `/api/trajectories/:id` | Get a specific trajectory detail |
 
 See the [REST API Reference](/rest/trajectories) for full endpoint documentation.
+
+## Convex Backend Contract
+
+When Milady runs with `backend.kind: "convex"`, trajectory persistence is provided by explicit Convex HTTP function paths under `backend.convex.trajectory`.
+
+Keep only non-secret Convex settings in `backend.convex`. Store `CONVEX_ADMIN_KEY` in Secrets or the `env` block so the runtime can hydrate it into `process.env` using the standard elizaOS secret flow.
+
+Required functions:
+
+- `listTrajectories`
+- `getTrajectoryDetail`
+- `getTrajectoryStats`
+- `startTrajectory`
+- `completeTrajectory`
+- `appendLlmCall`
+- `appendProviderAccess`
+- `deleteTrajectories`
+- `clearAllTrajectories`
+
+Milady calls `listTrajectories`, `getTrajectoryDetail`, and `getTrajectoryStats` as Convex queries. The remaining functions are called as Convex mutations.
+
+Expected argument shape:
+
+```json
+{
+  "agentId": "agent-123",
+  "...": "function-specific fields"
+}
+```
+
+For write operations Milady also sends `stepId`, normalized payload fields, and a millisecond `timestamp` where relevant. Query functions should return the same logical shapes the app already expects from the legacy SQL path:
+
+- list: `{ trajectories, total, offset, limit }`
+- detail: one trajectory with `trajectoryId`, `agentId`, `startTime`, optional `endTime`, `steps`, `metrics`, and `metadata`
+- stats: aggregate counts object
+
+If these function paths are missing, Milady keeps trajectory persistence unavailable on the active Convex backend and the UI will render an explicit unsupported state.

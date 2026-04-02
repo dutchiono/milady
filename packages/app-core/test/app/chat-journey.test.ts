@@ -138,6 +138,7 @@ type ProbeApi = {
     images: Array<{ data: string; mimeType: string; name: string }>,
   ) => void;
   handleSelectConversation: (id: string) => Promise<void>;
+  handleDeleteConversation: (id: string) => Promise<void>;
   handleChatSend: () => Promise<void>;
   handleChatEdit: (messageId: string, text: string) => Promise<boolean>;
   handleNewConversation: () => Promise<void>;
@@ -145,13 +146,14 @@ type ProbeApi = {
     activeConversationId: string | null;
     chatSending: boolean;
     chatFirstTokenReceived: boolean;
-    conversationMessages: Array<{
-      id: string;
-      role: "user" | "assistant";
-      text: string;
-      timestamp: number;
-      source?: string;
-    }>;
+      conversationMessages: Array<{
+        id: string;
+        role: "user" | "assistant";
+        text: string;
+        timestamp: number;
+        source?: string;
+      }>;
+      actionNotice: { text: string; tone: string } | null;
   };
 };
 
@@ -164,6 +166,7 @@ function Probe(props: { onReady: (api: ProbeApi) => void }) {
       setChatInput: (text: string) => app.setState("chatInput", text),
       setChatPendingImages: (images) => app.setChatPendingImages(images),
       handleSelectConversation: app.handleSelectConversation,
+      handleDeleteConversation: app.handleDeleteConversation,
       handleChatSend: () => app.handleChatSend("simple"),
       handleChatEdit: app.handleChatEdit,
       handleNewConversation: app.handleNewConversation,
@@ -178,6 +181,12 @@ function Probe(props: { onReady: (api: ProbeApi) => void }) {
           timestamp: message.timestamp,
           source: message.source,
         })),
+        actionNotice: app.actionNotice
+          ? {
+              text: app.actionNotice.text,
+              tone: app.actionNotice.tone,
+            }
+          : null,
       }),
     });
   }, [app, onReady]);
@@ -412,6 +421,79 @@ describe("chat journey", () => {
           text: "hello",
         }),
       ]);
+
+      await act(async () => {
+        tree!.unmount();
+      });
+    });
+
+    it("surfaces a backend warning when conversation refresh runs on convex", async () => {
+      mockClient.listConversations.mockResolvedValue({
+        conversations: [
+          {
+            id: "conv-1",
+            title: "Chat",
+            roomId: "room-1",
+            createdAt: "2026-02-01T00:00:00.000Z",
+            updatedAt: "2026-02-01T00:00:00.000Z",
+          },
+          {
+            id: "conv-2",
+            title: "Second Chat",
+            roomId: "room-2",
+            createdAt: "2026-02-02T00:00:00.000Z",
+            updatedAt: "2026-02-02T00:00:00.000Z",
+          },
+        ],
+        backend: {
+          configured: "convex",
+          active: "convex",
+          needsMigration: false,
+          legacyProvider: "pglite",
+          capabilities: {
+            databaseBrowser: false,
+            sqlQuery: false,
+            trajectoryPersistence: true,
+          },
+          convex: {
+            enabled: true,
+            url: "https://example.convex.cloud",
+            deployment: "dev:milady",
+            hasAdminKey: true,
+            runtimeFlagEnabled: true,
+            canActivate: true,
+            missing: [],
+          },
+        },
+      });
+
+      let api: ProbeApi | null = null;
+      let tree: TestRenderer.ReactTestRenderer;
+
+      await act(async () => {
+        tree = TestRenderer.create(
+          React.createElement(
+            AppProvider,
+            null,
+            React.createElement(Probe, {
+              onReady: (nextApi) => {
+                api = nextApi;
+              },
+            }),
+          ),
+        );
+      });
+
+      await act(async () => {
+        await api!.handleDeleteConversation("conv-1");
+      });
+
+      expect(api!.snapshot().actionNotice).toEqual(
+        expect.objectContaining({
+          tone: "warning",
+          text: expect.stringContaining("persisted conversation cleanup"),
+        }),
+      );
 
       await act(async () => {
         tree!.unmount();

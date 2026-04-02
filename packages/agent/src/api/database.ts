@@ -18,13 +18,24 @@ import type http from "node:http";
 import net from "node:net";
 import { promisify } from "node:util";
 import { type AgentRuntime, logger } from "@elizaos/core";
+import {
+  buildBackendRuntimeStatus,
+  normalizeBackendConfig,
+  type BackendRuntimeStatus as SharedBackendRuntimeStatus,
+} from "@miladyai/shared";
 import { loadElizaConfig, saveElizaConfig } from "../config/config";
 import { resolveApiBindHost } from "../config/runtime-env";
 import type {
+  BackendConfig,
   DatabaseConfig,
   DatabaseProviderType,
   PostgresCredentials,
 } from "../config/types.eliza";
+import {
+  formatConvexServerVersion,
+  probeConvexBackend,
+  validateConvexConfig,
+} from "../runtime/convex";
 import {
   isLoopbackHost,
   normalizeHostLike,
@@ -41,6 +52,7 @@ import {
 // ---------------------------------------------------------------------------
 
 interface DatabaseStatus {
+  backend: BackendRuntimeStatus;
   provider: DatabaseProviderType;
   connected: boolean;
   serverVersion: string | null;
@@ -48,6 +60,32 @@ interface DatabaseStatus {
   pgliteDataDir: string | null;
   postgresHost: string | null;
 }
+
+interface BackendRuntimeStatus {
+  configured: SharedBackendRuntimeStatus["configured"];
+  active: SharedBackendRuntimeStatus["active"];
+  needsMigration: boolean;
+  legacyProvider: DatabaseProviderType;
+  capabilities: SharedBackendRuntimeStatus["capabilities"];
+  convex: SharedBackendRuntimeStatus["convex"];
+}
+
+interface DatabaseConfigResponse {
+  config: DatabaseConfig;
+  backendConfig: BackendConfig;
+  backend: BackendRuntimeStatus;
+  activeBackend: BackendRuntimeStatus["active"];
+  activeProvider: DatabaseProviderType;
+  needsRestart: boolean;
+}
+
+type DatabaseConfigUpdate = DatabaseConfig & {
+  backend?: BackendConfig;
+};
+
+type DatabaseConnectionTestRequest = PostgresCredentials & {
+  backend?: BackendConfig;
+};
 
 interface TableInfo {
   name: string;
@@ -433,6 +471,36 @@ function detectCurrentProvider(): DatabaseProviderType {
   return process.env.POSTGRES_URL ? "postgres" : "pglite";
 }
 
+function buildBackendStatus(
+  config = loadElizaConfig(),
+): BackendRuntimeStatus {
+  return buildBackendRuntimeStatus({
+    backend: config.backend,
+    env: process.env,
+    legacyProvider: detectCurrentProvider(),
+  });
+}
+
+function resolveConfigRestartNeeded(
+  dbConfig: DatabaseConfig,
+  backendStatus: BackendRuntimeStatus,
+): boolean {
+  return (
+    (dbConfig.provider ?? "pglite") !== detectCurrentProvider() ||
+    backendStatus.configured !== backendStatus.active
+  );
+}
+
+function sanitizeBackendConfig(backend: BackendConfig | undefined): BackendConfig {
+  const normalized = normalizeBackendConfig(backend);
+  if (!normalized.convex?.adminKey) return normalized;
+  const { adminKey: _adminKey, ...convex } = normalized.convex;
+  return {
+    ...normalized,
+    convex,
+  };
+}
+
 /** Verify a table name refers to a real user table. */
 async function assertTableExists(
   runtime: AgentRuntime,
@@ -463,9 +531,31 @@ async function handleGetStatus(
   res: http.ServerResponse,
   runtime: AgentRuntime | null,
 ): Promise<void> {
+  const config = loadElizaConfig();
   const provider = detectCurrentProvider();
+  const backend = buildBackendStatus(config);
+
+  if (backend.active === "convex") {
+    sendJson(res, {
+      backend,
+      provider,
+      connected: backend.convex.canActivate,
+      serverVersion:
+        backend.convex.canActivate && backend.convex.deployment
+          ? formatConvexServerVersion({
+              deployment: backend.convex.deployment,
+            })
+          : null,
+      tableCount: 0,
+      pgliteDataDir: null,
+      postgresHost: null,
+    } satisfies DatabaseStatus);
+    return;
+  }
+
   if (!runtime?.adapter) {
     sendJson(res, {
+      backend,
       provider,
       connected: false,
       serverVersion: null,
@@ -495,6 +585,7 @@ async function handleGetStatus(
       : 0;
 
   const status: DatabaseStatus = {
+    backend,
     provider,
     connected: true,
     serverVersion,
@@ -523,6 +614,8 @@ function handleGetConfig(
 ): void {
   const config = loadElizaConfig();
   const dbConfig: DatabaseConfig = config.database ?? { provider: "pglite" };
+  const backendConfig = sanitizeBackendConfig(config.backend);
+  const backend = buildBackendStatus(config);
   // Mask the password in the response
   const sanitized = { ...dbConfig };
   if (sanitized.postgres?.password) {
@@ -543,9 +636,12 @@ function handleGetConfig(
   }
   sendJson(res, {
     config: sanitized,
+    backendConfig,
+    backend,
+    activeBackend: backend.active,
     activeProvider: detectCurrentProvider(),
-    needsRestart: (dbConfig.provider ?? "pglite") !== detectCurrentProvider(),
-  });
+    needsRestart: resolveConfigRestartNeeded(dbConfig, backend),
+  } satisfies DatabaseConfigResponse);
 }
 
 /**
@@ -557,7 +653,7 @@ async function handlePutConfig(
   req: http.IncomingMessage,
   res: http.ServerResponse,
 ): Promise<void> {
-  const body = await readJsonBody<DatabaseConfig>(req, res);
+  const body = await readJsonBody<DatabaseConfigUpdate>(req, res);
   if (!body) return;
 
   // Validate
@@ -576,6 +672,21 @@ async function handlePutConfig(
   // Load current config so validation can account for unchanged provider.
   const config = loadElizaConfig();
   const existingDb = config.database ?? {};
+  const nextBackendConfig = normalizeBackendConfig({
+    ...(config.backend ?? {}),
+    ...(body.backend ?? {}),
+  });
+  if (
+    nextBackendConfig.kind &&
+    nextBackendConfig.kind !== "legacy-sql" &&
+    nextBackendConfig.kind !== "convex"
+  ) {
+    sendJsonError(
+      res,
+      `Invalid backend kind: ${String(nextBackendConfig.kind)}. Must be "legacy-sql" or "convex".`,
+    );
+    return;
+  }
   const effectiveProvider =
     body.provider ?? existingDb.provider ?? ("pglite" as DatabaseProviderType);
   let validatedPostgres: PostgresCredentials | null = null;
@@ -621,6 +732,7 @@ async function handlePutConfig(
   }
 
   config.database = merged;
+  config.backend = nextBackendConfig;
   saveElizaConfig(config);
 
   logger.info(
@@ -628,10 +740,16 @@ async function handlePutConfig(
     "Database configuration saved",
   );
 
+  const backend = buildBackendStatus(config);
+
   sendJson(res, {
     saved: true,
     config: merged,
-    needsRestart: (merged.provider ?? "pglite") !== detectCurrentProvider(),
+    backendConfig: sanitizeBackendConfig(nextBackendConfig),
+    backend,
+    activeBackend: backend.active,
+    activeProvider: detectCurrentProvider(),
+    needsRestart: resolveConfigRestartNeeded(merged, backend),
   });
 }
 
@@ -644,8 +762,44 @@ async function handleTestConnection(
   req: http.IncomingMessage,
   res: http.ServerResponse,
 ): Promise<void> {
-  const body = await readJsonBody<PostgresCredentials>(req, res);
+  const body = await readJsonBody<DatabaseConnectionTestRequest>(req, res);
   if (!body) return;
+
+  const backend = normalizeBackendConfig(body.backend);
+  const start = Date.now();
+  if (backend.kind === "convex") {
+    const missing = validateConvexConfig(backend.convex);
+    if (missing.length > 0) {
+      sendJson(res, {
+        success: false,
+        serverVersion: null,
+        error: `Convex backend requires ${missing.join(", ")}.`,
+        durationMs: Date.now() - start,
+      } satisfies ConnectionTestResult);
+      return;
+    }
+
+    try {
+      const result = await probeConvexBackend(
+        backend.convex as NonNullable<typeof backend.convex>,
+      );
+      sendJson(res, {
+        success: true,
+        serverVersion: result.serverVersion,
+        error: null,
+        durationMs: Date.now() - start,
+      } satisfies ConnectionTestResult);
+      return;
+    } catch (err) {
+      sendJson(res, {
+        success: false,
+        serverVersion: null,
+        error: err instanceof Error ? err.message : String(err),
+        durationMs: Date.now() - start,
+      } satisfies ConnectionTestResult);
+      return;
+    }
+  }
 
   const validation = await validateDbHost(body);
   if (validation.error) {
@@ -657,7 +811,6 @@ async function handleTestConnection(
     ? withPinnedHost(body, validation.pinnedHost)
     : body;
   const connectionString = buildConnectionString(pinnedCreds);
-  const start = Date.now();
 
   // Dynamically import pg to avoid hard-coupling (it is a peer dep via plugin-sql)
   let Pool: typeof import("pg").Pool;
@@ -1309,11 +1462,15 @@ export async function handleDatabaseRoute(
     return true;
   }
 
+  const backend = buildBackendStatus();
+
   // Routes below require a live runtime with a database adapter
-  if (!runtime?.adapter) {
+  if (!runtime?.adapter || !backend.capabilities.databaseBrowser) {
     sendJsonError(
       res,
-      "Database not available. The agent may not be running or the database adapter is not initialized.",
+      backend.capabilities.databaseBrowser
+        ? "Database not available. The agent may not be running or the database adapter is not initialized."
+        : `Database browser unavailable for active backend "${backend.active}".`,
       503,
     );
     return true;

@@ -3,6 +3,8 @@
 // Knowledge*, Memory*, MCP*, Share*
 // ---------------------------------------------------------------------------
 
+import type { BackendRuntimeStatus } from "@miladyai/shared";
+
 // Conversations
 export interface Conversation {
   id: string;
@@ -10,6 +12,25 @@ export interface Conversation {
   roomId: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ConversationDeleteCleanup {
+  attempted: boolean;
+  supported: boolean;
+  deletedMessages: number;
+  deletedRoom: boolean;
+  warning: string | null;
+}
+
+export interface ConversationListResponse {
+  conversations: Conversation[];
+  backend?: BackendRuntimeStatus;
+}
+
+export interface ConversationDeleteResponse {
+  ok: boolean;
+  backend?: BackendRuntimeStatus;
+  cleanup?: ConversationDeleteCleanup;
 }
 
 export interface ConversationGreeting {

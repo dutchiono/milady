@@ -25,6 +25,10 @@ import {
   stringToUuid,
   type UUID,
 } from "@elizaos/core";
+import {
+  buildBackendRuntimeStatus,
+  normalizeBackendConfig,
+} from "@miladyai/shared";
 import type { ElizaConfig } from "../config/config.js";
 import { resolveStateDir } from "../config/paths.js";
 import { evictOldestConversation } from "./memory-bounds.js";
@@ -142,6 +146,14 @@ export interface ConversationRouteState {
   tradePermissionMode?: string;
 }
 
+interface ConversationDeleteCleanup {
+  attempted: boolean;
+  supported: boolean;
+  deletedMessages: number;
+  deletedRoom: boolean;
+  warning: string | null;
+}
+
 export interface ConversationRouteContext extends RouteRequestContext {
   state: ConversationRouteState;
 }
@@ -227,10 +239,24 @@ function markConversationDeleted(
   }
 }
 
+function resolveConversationLegacyProvider(
+  config: ElizaConfig,
+): "pglite" | "postgres" {
+  return config.database?.provider ?? "pglite";
+}
+
+function buildConversationBackendStatus(config: ElizaConfig) {
+  return buildBackendRuntimeStatus({
+    backend: normalizeBackendConfig(config.backend),
+    env: process.env,
+    legacyProvider: resolveConversationLegacyProvider(config),
+  });
+}
+
 async function deleteConversationRoomData(
   runtime: AgentRuntime,
   roomId: UUID,
-): Promise<void> {
+): Promise<boolean> {
   const runtimeWithDelete = runtime as AgentRuntime & {
     deleteRoom?: (id: UUID) => Promise<unknown>;
     adapter?: {
@@ -242,13 +268,16 @@ async function deleteConversationRoomData(
 
   if (typeof runtimeWithDelete.deleteRoom === "function") {
     await runtimeWithDelete.deleteRoom(roomId);
-    return;
+    return true;
   }
 
   const dbDeleteRoom = runtimeWithDelete.adapter?.db?.deleteRoom;
   if (typeof dbDeleteRoom === "function") {
     await dbDeleteRoom.call(runtimeWithDelete.adapter?.db, roomId);
+    return true;
   }
+
+  return false;
 }
 
 async function deleteConversationMemories(
@@ -554,7 +583,10 @@ export async function handleConversationRoutes(
         (a, b) =>
           new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
       );
-    json(res, { conversations: convos });
+    json(res, {
+      conversations: convos,
+      backend: buildConversationBackendStatus(state.config),
+    });
     return true;
   }
 
@@ -1174,7 +1206,21 @@ export async function handleConversationRoutes(
   ) {
     const convId = decodeURIComponent(pathname.split("/")[3]);
     const conv = await getConversationWithRestore(state, convId);
+    const backend = buildConversationBackendStatus(state.config);
+    const cleanup: ConversationDeleteCleanup = {
+      attempted: false,
+      supported: true,
+      deletedMessages: 0,
+      deletedRoom: false,
+      warning: null,
+    };
     if (conv?.roomId && state.runtime) {
+      cleanup.attempted = true;
+      if (backend.active !== "legacy-sql") {
+        cleanup.supported = false;
+        cleanup.warning =
+          `Conversation was removed locally, but persisted room cleanup is not supported by the active backend (${backend.active}).`;
+      } else {
       try {
         const memories = await state.runtime.getMemories({
           roomId: conv.roomId,
@@ -1188,24 +1234,51 @@ export async function handleConversationRoutes(
               typeof memoryId === "string" && memoryId.trim().length > 0,
           );
         if (memoryIds.length > 0) {
-          await deleteConversationMemories(state.runtime, memoryIds);
+          cleanup.deletedMessages = await deleteConversationMemories(
+            state.runtime,
+            memoryIds,
+          );
         }
       } catch (err) {
-        logger.debug(
-          `[conversations] Failed to delete messages for ${convId}: ${err instanceof Error ? err.message : String(err)}`,
-        );
+        const status = (err as { status?: number }).status;
+        if (status === 501) {
+          cleanup.supported = false;
+          cleanup.warning =
+            cleanup.warning ??
+            `Conversation was removed locally, but persisted message cleanup is not supported by the active backend (${backend.active}).`;
+        } else {
+          logger.debug(
+            `[conversations] Failed to delete messages for ${convId}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+          cleanup.warning =
+            cleanup.warning ??
+            `Conversation was removed locally, but persisted message cleanup failed on backend ${backend.active}.`;
+        }
       }
       try {
-        await deleteConversationRoomData(state.runtime, conv.roomId);
+        cleanup.deletedRoom = await deleteConversationRoomData(
+          state.runtime,
+          conv.roomId,
+        );
+        if (!cleanup.deletedRoom) {
+          cleanup.supported = false;
+          cleanup.warning =
+            cleanup.warning ??
+            `Conversation was removed locally, but persisted room cleanup is not supported by the active backend (${backend.active}).`;
+        }
       } catch (err) {
         logger.debug(
           `[conversations] Failed to delete room data for ${convId}: ${err instanceof Error ? err.message : String(err)}`,
         );
+        cleanup.warning =
+          cleanup.warning ??
+          `Conversation was removed locally, but persisted room cleanup failed on backend ${backend.active}.`;
+      }
       }
     }
     state.conversations.delete(convId);
     markConversationDeleted(state, convId);
-    json(res, { ok: true });
+    json(res, { ok: true, backend, cleanup });
     return true;
   }
 

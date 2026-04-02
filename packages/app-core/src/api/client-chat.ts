@@ -3,14 +3,19 @@
  * share ingest, workbench, trajectories, database.
  */
 
-import type { DatabaseProviderType } from "@miladyai/agent/contracts/config";
+import type {
+  BackendConfig,
+  DatabaseProviderType,
+} from "@miladyai/agent/contracts/config";
 import type {
   ChatTokenUsage,
   ConnectionTestResult,
   ContentBlock,
   Conversation,
+  ConversationDeleteResponse,
   ConversationChannelType,
   ConversationGreeting,
+  ConversationListResponse,
   ConversationMessage,
   ConversationMode,
   CreateConversationOptions,
@@ -71,7 +76,7 @@ declare module "./client-base" {
       completed: boolean;
       usage?: ChatTokenUsage;
     }>;
-    listConversations(): Promise<{ conversations: Conversation[] }>;
+    listConversations(): Promise<ConversationListResponse>;
     createConversation(
       title?: string,
       options?: CreateConversationOptions,
@@ -128,7 +133,7 @@ declare module "./client-base" {
       title: string,
       options?: { generate?: boolean },
     ): Promise<{ conversation: Conversation }>;
-    deleteConversation(id: string): Promise<{ ok: boolean }>;
+    deleteConversation(id: string): Promise<ConversationDeleteResponse>;
     getKnowledgeStats(): Promise<KnowledgeStats>;
     listKnowledgeDocuments(options?: {
       limit?: number;
@@ -257,6 +262,7 @@ declare module "./client-base" {
     getDatabaseConfig(): Promise<DatabaseConfigResponse>;
     saveDatabaseConfig(config: {
       provider?: DatabaseProviderType;
+      backend?: BackendConfig;
       pglite?: { dataDir?: string };
       postgres?: {
         connectionString?: string;
@@ -267,8 +273,9 @@ declare module "./client-base" {
         password?: string;
         ssl?: boolean;
       };
-    }): Promise<{ saved: boolean; needsRestart: boolean }>;
+    }): Promise<DatabaseConfigResponse & { saved: boolean }>;
     testDatabaseConnection(creds: {
+      backend?: BackendConfig;
       connectionString?: string;
       host?: string;
       port?: number;
@@ -355,7 +362,7 @@ MiladyClient.prototype.sendChatStream = async function (
 };
 
 MiladyClient.prototype.listConversations = async function (this: MiladyClient) {
-  return this.fetch("/api/conversations");
+  return this.fetch<ConversationListResponse>("/api/conversations");
 };
 
 MiladyClient.prototype.createConversation = async function (
@@ -513,9 +520,12 @@ MiladyClient.prototype.deleteConversation = async function (
   this: MiladyClient,
   id,
 ) {
-  return this.fetch(`/api/conversations/${encodeURIComponent(id)}`, {
-    method: "DELETE",
-  });
+  return this.fetch<ConversationDeleteResponse>(
+    `/api/conversations/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE",
+    },
+  );
 };
 
 MiladyClient.prototype.getKnowledgeStats = async function (this: MiladyClient) {

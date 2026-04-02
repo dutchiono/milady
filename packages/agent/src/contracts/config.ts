@@ -4,6 +4,31 @@
 
 export type DatabaseProviderType = "pglite" | "postgres";
 
+export type BackendKind = "legacy-sql" | "convex";
+
+export type BackendConvexConfig = {
+  enabled?: boolean;
+  url?: string;
+  deployment?: string;
+  adminKey?: string;
+  trajectory?: {
+    listTrajectories?: string;
+    getTrajectoryDetail?: string;
+    getTrajectoryStats?: string;
+    startTrajectory?: string;
+    completeTrajectory?: string;
+    appendLlmCall?: string;
+    appendProviderAccess?: string;
+    deleteTrajectories?: string;
+    clearAllTrajectories?: string;
+  };
+};
+
+export type BackendConfig = {
+  kind?: BackendKind;
+  convex?: BackendConvexConfig;
+};
+
 export type MediaMode = "cloud" | "own-key";
 
 export type ImageProvider = "cloud" | "fal" | "openai" | "google" | "xai";

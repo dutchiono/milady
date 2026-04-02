@@ -8,6 +8,8 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { getTrajectoryPersistenceBlockedMessage } from "./TrajectoriesView";
+import { getConvexSecretsNotice } from "./SecretsView";
 
 describe("trajectory clearAll fix", () => {
   it("server should accept clearAll field from client", () => {
@@ -94,5 +96,118 @@ describe("cost estimation", () => {
       expect(typeof model).toBe("string");
       expect(model.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("trajectory backend capability contract", () => {
+  it("includes trajectory persistence capability on config responses", () => {
+    const config = {
+      enabled: true,
+      backend: {
+        configured: "convex",
+        active: "convex",
+        needsMigration: false,
+        legacyProvider: "pglite",
+        capabilities: {
+          databaseBrowser: false,
+          sqlQuery: false,
+          trajectoryPersistence: false,
+        },
+      },
+    };
+
+    expect(config.backend.active).toBe("convex");
+    expect(config.backend.capabilities.trajectoryPersistence).toBe(false);
+  });
+
+  it("uses the unsupported-backend empty state copy for non-SQL backends", () => {
+    const message = getTrajectoryPersistenceBlockedMessage({
+      enabled: true,
+      backend: {
+        configured: "convex",
+        active: "convex",
+        needsMigration: false,
+        legacyProvider: "pglite",
+        capabilities: {
+          databaseBrowser: false,
+          sqlQuery: false,
+          trajectoryPersistence: false,
+        },
+        convex: {
+          enabled: true,
+          url: "https://example.convex.cloud",
+          deployment: "dev:milady",
+          hasAdminKey: false,
+          runtimeFlagEnabled: true,
+          canActivate: false,
+          missing: ["adminKey"],
+        },
+      },
+    });
+
+    expect(message).toBe(
+      "Convex trajectory persistence is blocked until CONVEX_ADMIN_KEY is added in Secrets.",
+    );
+  });
+
+  it("uses config-specific blocked copy when Convex is incomplete", () => {
+    const message = getTrajectoryPersistenceBlockedMessage({
+      enabled: true,
+      backend: {
+        configured: "convex",
+        active: "convex",
+        needsMigration: false,
+        legacyProvider: "pglite",
+        capabilities: {
+          databaseBrowser: false,
+          sqlQuery: false,
+          trajectoryPersistence: false,
+        },
+        convex: {
+          enabled: true,
+          url: "https://example.convex.cloud",
+          deployment: "dev:milady",
+          hasAdminKey: true,
+          runtimeFlagEnabled: true,
+          canActivate: false,
+          missing: ["trajectory.getTrajectoryDetail"],
+        },
+      },
+    });
+
+    expect(message).toContain("trajectory.getTrajectoryDetail");
+  });
+});
+
+describe("convex secrets copy", () => {
+  it("explains that CONVEX_ADMIN_KEY belongs in Secrets", () => {
+    expect(
+      getConvexSecretsNotice([
+        {
+          key: "CONVEX_ADMIN_KEY",
+          description: "Convex admin key",
+          category: "auth",
+          sensitive: true,
+          required: true,
+          isSet: false,
+          maskedValue: null,
+          usedBy: [],
+        },
+      ]),
+    ).toContain("CONVEX_ADMIN_KEY");
+    expect(
+      getConvexSecretsNotice([
+        {
+          key: "CONVEX_ADMIN_KEY",
+          description: "Convex admin key",
+          category: "auth",
+          sensitive: true,
+          required: true,
+          isSet: true,
+          maskedValue: "****",
+          usedBy: [],
+        },
+      ]),
+    ).toContain("managed here");
   });
 });

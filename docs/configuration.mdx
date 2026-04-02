@@ -172,6 +172,7 @@ Here is every top-level key in `MiladyConfig`:
   gateway: {},        // Gateway server (port, bind, TLS, auth)
   memory: {},         // Memory backend (builtin vs qmd)
   embedding: {},      // Local embedding model (GGUF, GPU layers)
+  backend: {},        // Backend runtime selection (legacy-sql vs convex)
   database: {},       // Database provider (PGLite or Postgres)
   cloud: {},          // Cloud integration (remote provisioning)
   x402: {},           // HTTP payment protocol
@@ -184,6 +185,45 @@ Here is every top-level key in `MiladyConfig`:
   customActions: [],  // User-defined custom actions
 }
 ```
+
+## Backend Migration
+
+Milady now supports a top-level `backend` block alongside the legacy `database` block. During the migration window, `database` still controls the legacy SQL implementation, while `backend` selects which runtime path Milady should expose to the app and API.
+
+```json5
+{
+  backend: {
+    kind: "convex",
+    convex: {
+      enabled: true,
+      url: "https://example.convex.cloud",
+      deployment: "dev:milady",
+      trajectory: {
+        listTrajectories: "trajectories:list",
+        getTrajectoryDetail: "trajectories:get",
+        getTrajectoryStats: "trajectories:stats",
+        startTrajectory: "trajectories:start",
+        completeTrajectory: "trajectories:complete",
+        appendLlmCall: "trajectories:appendLlmCall",
+        appendProviderAccess: "trajectories:appendProviderAccess",
+        deleteTrajectories: "trajectories:delete",
+        clearAllTrajectories: "trajectories:clearAll",
+      },
+    },
+  },
+  database: {
+    provider: "pglite",
+  },
+}
+```
+
+Notes:
+
+- `backend.kind` controls the migration-era runtime contract exposed by Milady.
+- Keep non-secret Convex settings in `backend.convex`. Store `CONVEX_ADMIN_KEY` in Secrets or `env`, not in the visible backend config block.
+- `database.provider` remains readable for the legacy SQL path and fallback behavior.
+- Convex only becomes the active backend when config is complete and `MILADY_ENABLE_EXPERIMENTAL_CONVEX_RUNTIME=1` is set.
+- The initial Convex vertical path is trajectory persistence. Database browsing and raw SQL remain legacy-SQL-only.
 
 ## Agent Configuration
 
