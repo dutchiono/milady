@@ -74,6 +74,7 @@ import {
   CORE_PLUGINS,
   OPTIONAL_CORE_PLUGINS,
 } from "../runtime/core-plugins.js";
+import { getPluginInfo } from "../services/registry-client.js";
 import {
   buildTestHandler,
   registerCustomActionLive,
@@ -11482,9 +11483,12 @@ async function handleRequest(
     }
 
     try {
+      const registryInfo = await getPluginInfo(pluginName).catch(() => null);
+      const requestedPluginName = pluginName;
+      const installName = registryInfo?.name ?? requestedPluginName;
       const pluginManager = requirePluginManager(state.runtime);
       const result = await pluginManager.installPlugin(
-        pluginName,
+        installName,
         (progress: InstallProgressLike) => {
           logger.info(`[install] ${progress.phase}: ${progress.message}`);
           state.broadcastWs?.({
@@ -11502,7 +11506,7 @@ async function handleRequest(
       }
 
       // Auto-enable the newly installed plugin so the runtime loads it after restart.
-      const installedId = (result.pluginName ?? pluginName)
+      const installedId = (result.pluginName ?? installName)
         .replace(/^@[^/]+\/plugin-/, "")
         .replace(/^@[^/]+\//, "")
         .replace(/^plugin-/, "");

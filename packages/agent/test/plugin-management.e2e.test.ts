@@ -4,6 +4,14 @@ import type { AgentRuntime } from "@elizaos/runtime";
 import type { PluginManagerLike } from "../src/services/plugin-manager-types";
 import { startApiServer } from "../src/api/server";
 
+const { mockGetPluginInfo } = vi.hoisted(() => ({
+  mockGetPluginInfo: vi.fn(),
+}));
+
+vi.mock("../src/services/registry-client", () => ({
+  getPluginInfo: (...args: unknown[]) => mockGetPluginInfo(...args),
+}));
+
 // ---------------------------------------------------------------------------
 // HTTP helper
 // ---------------------------------------------------------------------------
@@ -57,6 +65,9 @@ describe("Plugin Management E2E", () => {
   let mockPluginManager: PluginManagerLike;
 
   beforeAll(async () => {
+    mockGetPluginInfo.mockReset();
+    mockGetPluginInfo.mockResolvedValue(null);
+
     // Create a mock plugin manager
     mockPluginManager = {
       installPlugin: vi.fn().mockImplementation(async (name) => {
@@ -66,9 +77,17 @@ describe("Plugin Management E2E", () => {
             error: "Not found",
             requiresRestart: false,
             pluginName: name,
+            version: "",
+            installPath: "",
           };
         }
-        return { success: true, pluginName: name, requiresRestart: true };
+        return {
+          success: true,
+          pluginName: name,
+          requiresRestart: true,
+          version: "1.0.0",
+          installPath: `/tmp/${name}`,
+        };
       }),
       ejectPlugin: vi.fn().mockImplementation(async (name) => {
         if (name.includes("non-existent"))
@@ -200,6 +219,38 @@ describe("Plugin Management E2E", () => {
       expect(status).toBeGreaterThanOrEqual(400);
       // We assume service attempts to install and fails
       expect(data.error).toBeDefined();
+    });
+
+    it("normalizes install requests through registry metadata before install", async () => {
+      mockGetPluginInfo.mockResolvedValueOnce({
+        name: "@elizaos/plugin-evm",
+        gitRepo: "elizaos-plugins/plugin-evm",
+        gitUrl: "https://github.com/elizaos-plugins/plugin-evm",
+        description: "EVM plugin",
+        homepage: "https://github.com/elizaos-plugins/plugin-evm",
+        topics: ["evm"],
+        stars: 1,
+        language: "TypeScript",
+        npm: {
+          package: "@elizaos/plugin-evm",
+          v2Version: "1.0.0",
+        },
+        supports: { v0: false, v1: false, v2: true },
+      });
+
+      const { status, data } = await http$(
+        server.port,
+        "POST",
+        "/api/plugins/install",
+        { name: "evm" },
+      );
+
+      expect(status).toBe(200);
+      expect(data.ok).toBe(true);
+      expect(mockPluginManager.installPlugin).toHaveBeenLastCalledWith(
+        "@elizaos/plugin-evm",
+        expect.any(Function),
+      );
     });
   });
 
