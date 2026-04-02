@@ -103,6 +103,7 @@ async function invoke(args: {
   body?: Record<string, unknown> | null;
   config?: ElizaConfig;
   deps?: WalletRouteDependencies;
+  runtime?: { plugins?: Array<{ name?: string | null } | null> } | null;
   resolveWalletExportRejection?: (
     _req: unknown,
     _body: unknown,
@@ -122,6 +123,7 @@ async function invoke(args: {
     method: args.method,
     pathname: args.pathname,
     config,
+    runtime: args.runtime,
     saveConfig,
     ensureWalletKeysInEnvAndConfig,
     resolveWalletExportRejection:
@@ -292,6 +294,54 @@ describe("wallet routes", () => {
         bscBalanceReady: true,
         avalancheBalanceReady: true,
         solanaBalanceReady: true,
+      }),
+    );
+  });
+
+  test("does not report plugin-evm as loaded from private key alone", async () => {
+    process.env.EVM_PRIVATE_KEY =
+      "0x59c6995e998f97a5a0044976f4b8c0fcbf2d34f95f0f70f7f6f6e3d54d3f5f31";
+    process.env.BSC_RPC_URL = "https://bsc.example/rpc";
+
+    const result = await invoke({
+      method: "GET",
+      pathname: "/api/wallet/config",
+      config: { env: {} } as ElizaConfig,
+      runtime: { plugins: [] },
+    });
+
+    expect(result.handled).toBe(true);
+    expect(result.payload).toEqual(
+      expect.objectContaining({
+        walletSource: "local",
+        pluginEvmRequired: true,
+        pluginEvmLoaded: false,
+        executionReady: false,
+        executionBlockedReason:
+          "plugin-evm is not loaded, so EVM wallet execution is unavailable.",
+      }),
+    );
+  });
+
+  test("reports plugin-evm as loaded when runtime includes it", async () => {
+    process.env.EVM_PRIVATE_KEY =
+      "0x59c6995e998f97a5a0044976f4b8c0fcbf2d34f95f0f70f7f6f6e3d54d3f5f31";
+    process.env.BSC_RPC_URL = "https://bsc.example/rpc";
+
+    const result = await invoke({
+      method: "GET",
+      pathname: "/api/wallet/config",
+      config: { env: {} } as ElizaConfig,
+      runtime: { plugins: [{ name: "@elizaos/plugin-evm" }] },
+    });
+
+    expect(result.handled).toBe(true);
+    expect(result.payload).toEqual(
+      expect.objectContaining({
+        pluginEvmRequired: true,
+        pluginEvmLoaded: true,
+        executionReady: true,
+        executionBlockedReason: null,
       }),
     );
   });
