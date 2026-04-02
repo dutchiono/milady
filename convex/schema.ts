@@ -1,6 +1,15 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+const scalarValueValidator = v.union(
+  v.string(),
+  v.float64(),
+  v.boolean(),
+  v.null(),
+);
+
+const metadataValidator = v.record(v.string(), scalarValueValidator);
+
 const llmCallValidator = v.object({
   callId: v.optional(v.string()),
   timestamp: v.optional(v.float64()),
@@ -21,8 +30,8 @@ const providerAccessValidator = v.object({
   providerId: v.optional(v.string()),
   providerName: v.optional(v.string()),
   purpose: v.optional(v.string()),
-  data: v.optional(v.any()),
-  query: v.optional(v.any()),
+  data: v.optional(metadataValidator),
+  query: v.optional(metadataValidator),
   timestamp: v.optional(v.float64()),
 });
 
@@ -49,7 +58,7 @@ export default defineSchema({
     totalCompletionTokens: v.float64(),
     createdAt: v.string(),
     updatedAt: v.string(),
-    metadata: v.optional(v.any()),
+    metadata: v.optional(metadataValidator),
     steps: v.array(stepValidator),
   })
     .index("by_agent_created_at", ["agentId", "createdAt"])

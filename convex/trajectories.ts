@@ -2,6 +2,8 @@ import { mutationGeneric, queryGeneric } from "convex/server";
 import { v } from "convex/values";
 
 type TrajectoryStatus = "active" | "completed" | "error" | "timeout";
+type MetadataValue = string | number | boolean | null;
+type MetadataRecord = Record<string, MetadataValue>;
 
 type LlmCall = {
   callId?: string;
@@ -23,8 +25,8 @@ type ProviderAccess = {
   providerId?: string;
   providerName?: string;
   purpose?: string;
-  data?: unknown;
-  query?: unknown;
+  data?: MetadataRecord;
+  query?: MetadataRecord;
   timestamp?: number;
 };
 
@@ -51,9 +53,118 @@ type TrajectoryDoc = {
   totalCompletionTokens: number;
   createdAt: string;
   updatedAt: string;
-  metadata?: Record<string, unknown>;
+  metadata?: MetadataRecord;
   steps: Step[];
 };
+
+type TrajectoryIndexQuery = {
+  eq: (field: "agentId" | "trajectoryId" | "createdAt", value: string) => TrajectoryIndexQuery;
+};
+
+type TrajectoryQueryResult = {
+  withIndex: (
+    name: "by_agent_created_at" | "by_agent_trajectory",
+    builder: (query: TrajectoryIndexQuery) => TrajectoryIndexQuery,
+  ) => {
+    collect: () => Promise<TrajectoryDoc[]>;
+    unique: () => Promise<TrajectoryDoc | null>;
+  };
+};
+
+type TrajectoryMutationContext = {
+  db: {
+    query: (table: "trajectories") => TrajectoryQueryResult;
+    insert: (
+      table: "trajectories",
+      value: Record<string, unknown>,
+    ) => Promise<unknown>;
+    patch: (id: unknown, value: Record<string, unknown>) => Promise<void>;
+    delete: (id: unknown) => Promise<void>;
+  };
+};
+
+const scalarValueValidator = v.union(
+  v.string(),
+  v.float64(),
+  v.boolean(),
+  v.null(),
+);
+
+const metadataValidator = v.record(v.string(), scalarValueValidator);
+
+const llmCallValidator = v.object({
+  callId: v.optional(v.string()),
+  timestamp: v.optional(v.float64()),
+  model: v.optional(v.string()),
+  systemPrompt: v.optional(v.string()),
+  userPrompt: v.optional(v.string()),
+  response: v.optional(v.string()),
+  temperature: v.optional(v.float64()),
+  maxTokens: v.optional(v.float64()),
+  purpose: v.optional(v.string()),
+  actionType: v.optional(v.string()),
+  latencyMs: v.optional(v.float64()),
+  promptTokens: v.optional(v.float64()),
+  completionTokens: v.optional(v.float64()),
+});
+
+const providerAccessValidator = v.object({
+  providerId: v.optional(v.string()),
+  providerName: v.optional(v.string()),
+  purpose: v.optional(v.string()),
+  data: v.optional(metadataValidator),
+  query: v.optional(metadataValidator),
+  timestamp: v.optional(v.float64()),
+});
+
+const stepValidator = v.object({
+  stepId: v.optional(v.string()),
+  timestamp: v.float64(),
+  llmCalls: v.optional(v.array(llmCallValidator)),
+  providerAccesses: v.optional(v.array(providerAccessValidator)),
+});
+
+const trajectorySummaryValidator = v.object({
+  id: v.string(),
+  agentId: v.string(),
+  source: v.string(),
+  status: v.string(),
+  startTime: v.float64(),
+  endTime: v.union(v.float64(), v.null()),
+  durationMs: v.union(v.float64(), v.null()),
+  stepCount: v.float64(),
+  llmCallCount: v.float64(),
+  providerAccessCount: v.float64(),
+  totalPromptTokens: v.float64(),
+  totalCompletionTokens: v.float64(),
+  createdAt: v.string(),
+  metadata: metadataValidator,
+});
+
+const trajectoryDetailValidator = v.object({
+  trajectoryId: v.string(),
+  agentId: v.string(),
+  startTime: v.float64(),
+  endTime: v.union(v.float64(), v.null()),
+  durationMs: v.union(v.float64(), v.null()),
+  steps: v.array(stepValidator),
+  metrics: v.object({
+    finalStatus: v.string(),
+  }),
+  metadata: metadataValidator,
+  stepsJson: v.string(),
+});
+
+const trajectoryStatsValidator = v.object({
+  totalTrajectories: v.float64(),
+  totalLlmCalls: v.float64(),
+  totalProviderAccesses: v.float64(),
+  totalPromptTokens: v.float64(),
+  totalCompletionTokens: v.float64(),
+  averageDurationMs: v.float64(),
+  bySource: v.record(v.string(), v.float64()),
+  byModel: v.record(v.string(), v.float64()),
+});
 
 function toStatus(value: string | undefined): TrajectoryStatus {
   if (
@@ -129,13 +240,13 @@ function trajectorySummary(doc: TrajectoryDoc) {
 }
 
 async function getTrajectoryDoc(
-  ctx: { db: { query: (table: string) => any } },
+  ctx: TrajectoryMutationContext,
   agentId: string,
   trajectoryId: string,
 ): Promise<TrajectoryDoc | null> {
   const found = await ctx.db
     .query("trajectories")
-    .withIndex("by_agent_trajectory", (q: any) =>
+    .withIndex("by_agent_trajectory", (q) =>
       q.eq("agentId", agentId).eq("trajectoryId", trajectoryId),
     )
     .unique();
@@ -143,14 +254,14 @@ async function getTrajectoryDoc(
 }
 
 async function upsertTrajectoryDoc(
-  ctx: { db: { insert: (table: string, value: Record<string, unknown>) => Promise<unknown>; patch: (id: unknown, value: Record<string, unknown>) => Promise<void> } },
+  ctx: TrajectoryMutationContext,
   params: {
     existing: TrajectoryDoc | null;
     agentId: string;
     trajectoryId: string;
     source: string;
     status: TrajectoryStatus;
-    metadata?: Record<string, unknown>;
+    metadata?: MetadataRecord;
     steps: Step[];
     startTime: number;
     endTime?: number;
@@ -198,7 +309,7 @@ export const list = queryGeneric({
     endDate: v.optional(v.string()),
   }),
   returns: v.object({
-    trajectories: v.array(v.any()),
+    trajectories: v.array(trajectorySummaryValidator),
     total: v.float64(),
     offset: v.float64(),
     limit: v.float64(),
@@ -235,7 +346,7 @@ export const get = queryGeneric({
     agentId: v.string(),
     trajectoryId: v.string(),
   }),
-  returns: v.union(v.any(), v.null()),
+  returns: v.union(trajectoryDetailValidator, v.null()),
   handler: async (ctx, args) => {
     const doc = await getTrajectoryDoc(ctx, args.agentId, args.trajectoryId);
     if (!doc) return null;
@@ -257,7 +368,7 @@ export const stats = queryGeneric({
   args: v.object({
     agentId: v.string(),
   }),
-  returns: v.any(),
+  returns: trajectoryStatsValidator,
   handler: async (ctx, args) => {
     const rows = (await ctx.db
       .query("trajectories")
@@ -303,7 +414,7 @@ export const start = mutationGeneric({
     agentId: v.string(),
     stepId: v.string(),
     source: v.optional(v.string()),
-    metadata: v.optional(v.any()),
+    metadata: v.optional(metadataValidator),
     timestamp: v.float64(),
   }),
   returns: v.null(),
@@ -316,7 +427,7 @@ export const start = mutationGeneric({
       trajectoryId: args.stepId,
       source: args.source ?? existing?.source ?? "chat",
       status: "active",
-      metadata: (args.metadata as Record<string, unknown> | undefined) ?? existing?.metadata,
+      metadata: args.metadata ?? existing?.metadata,
       steps,
       startTime: existing?.startTime ?? args.timestamp,
       endTime: undefined,
@@ -332,7 +443,7 @@ export const complete = mutationGeneric({
     stepId: v.string(),
     status: v.string(),
     source: v.optional(v.string()),
-    metadata: v.optional(v.any()),
+    metadata: v.optional(metadataValidator),
     timestamp: v.float64(),
   }),
   returns: v.null(),
@@ -345,7 +456,7 @@ export const complete = mutationGeneric({
       trajectoryId: args.stepId,
       source: args.source ?? existing?.source ?? "chat",
       status: toStatus(args.status),
-      metadata: (args.metadata as Record<string, unknown> | undefined) ?? existing?.metadata,
+      metadata: args.metadata ?? existing?.metadata,
       steps,
       startTime: existing?.startTime ?? args.timestamp,
       endTime: args.timestamp,
@@ -359,11 +470,11 @@ export const appendLlmCall = mutationGeneric({
   args: v.object({
     agentId: v.string(),
     stepId: v.string(),
-    payload: v.any(),
+    payload: llmCallValidator,
   }),
   returns: v.null(),
   handler: async (ctx, args) => {
-    const payload = (args.payload ?? {}) as Record<string, unknown>;
+    const payload = args.payload;
     const timestamp =
       typeof payload.timestamp === "number" ? payload.timestamp : Date.now();
     const existing = await getTrajectoryDoc(ctx, args.agentId, args.stepId);
@@ -396,11 +507,11 @@ export const appendProviderAccess = mutationGeneric({
   args: v.object({
     agentId: v.string(),
     stepId: v.string(),
-    payload: v.any(),
+    payload: providerAccessValidator,
   }),
   returns: v.null(),
   handler: async (ctx, args) => {
-    const payload = (args.payload ?? {}) as Record<string, unknown>;
+    const payload = args.payload;
     const timestamp =
       typeof payload.timestamp === "number" ? payload.timestamp : Date.now();
     const existing = await getTrajectoryDoc(ctx, args.agentId, args.stepId);
@@ -445,7 +556,7 @@ export const deleteTrajectories = mutationGeneric({
     for (const trajectoryId of args.trajectoryIds) {
       const existing = await getTrajectoryDoc(ctx, args.agentId, trajectoryId);
       if (!existing) continue;
-      await ctx.db.delete(existing._id as any);
+      await ctx.db.delete(existing._id);
       deleted += 1;
     }
     return { deleted };
@@ -465,7 +576,7 @@ export const clearAll = mutationGeneric({
       .withIndex("by_agent_created_at", (q) => q.eq("agentId", args.agentId))
       .collect()) as TrajectoryDoc[];
     for (const row of rows) {
-      await ctx.db.delete(row._id as any);
+      await ctx.db.delete(row._id);
     }
     return { deleted: rows.length };
   },
