@@ -2949,8 +2949,10 @@ describe("API Server E2E (no runtime)", () => {
   describe("wallet mode guidance fallback", () => {
     it("GET /api/wallet/config exposes wallet capability readiness fields", async () => {
       const prevKey = process.env.EVM_PRIVATE_KEY;
+      const prevBscRpc = process.env.BSC_RPC_URL;
       process.env.EVM_PRIVATE_KEY =
         "0x59c6995e998f97a5a0044976f4b8c0fcbf2d34f95f0f70f7f6f6e3d54d3f5f31";
+      process.env.BSC_RPC_URL = "https://bsc.example/rpc";
       const runtime = createRuntimeForChatSseTests();
       const server = await startApiServer({ port: 0, runtime });
       try {
@@ -2963,16 +2965,17 @@ describe("API Server E2E (no runtime)", () => {
         expect(data.walletSource).toBe("local");
         expect(data.automationMode).toBe("full");
         expect(data.walletNetwork).toBe("mainnet");
-        expect(typeof data.pluginEvmLoaded).toBe("boolean");
-        expect(typeof data.executionReady).toBe("boolean");
-        expect(
-          data.executionBlockedReason === null ||
-            typeof data.executionBlockedReason === "string",
-        ).toBe(true);
+        expect(data.pluginEvmLoaded).toBe(false);
+        expect(data.executionReady).toBe(false);
+        expect(data.executionBlockedReason).toBe(
+          "plugin-evm is not loaded, so EVM wallet execution is unavailable.",
+        );
       } finally {
         await server.close();
         if (prevKey === undefined) delete process.env.EVM_PRIVATE_KEY;
         else process.env.EVM_PRIVATE_KEY = prevKey;
+        if (prevBscRpc === undefined) delete process.env.BSC_RPC_URL;
+        else process.env.BSC_RPC_URL = prevBscRpc;
       }
     });
 
