@@ -123,7 +123,7 @@ export interface DataLoadersDeps {
   setConversationMessages: (v: ConversationMessage[]) => void;
   setActionNotice: (
     text: string,
-    tone?: "info" | "success" | "error" | "warning",
+    tone?: "info" | "success" | "error",
     ms?: number,
   ) => void;
 
@@ -291,7 +291,7 @@ export function useDataLoaders(deps: DataLoadersDeps) {
       conversationBackendNoticeRef.current = noticeKey;
       setActionNotice(
         `Conversations are running on ${backend.active}. Chat history is available, but persisted conversation cleanup still follows legacy-sql limits.`,
-        "warning",
+        "info",
         5200,
       );
     },

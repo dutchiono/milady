@@ -83,7 +83,7 @@
     "build:ios": "cd apps/app && bun scripts/build.mjs && capacitor sync ios",
     "clean": "node scripts/clean-repo.mjs",
     "clean:deep": "node scripts/clean-repo.mjs --deep",
-    "check": "scripts/rt.sh run typecheck && scripts/rt.sh run lint",
+    "check": "bun run typecheck && bun run lint",
     "knip": "bunx knip",
     "knip:fix": "bunx knip --fix",
     "find-dupes": "node scripts/find-duplicate-components.mjs",

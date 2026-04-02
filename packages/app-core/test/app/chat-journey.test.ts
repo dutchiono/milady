@@ -490,7 +490,7 @@ describe("chat journey", () => {
 
       expect(api!.snapshot().actionNotice).toEqual(
         expect.objectContaining({
-          tone: "warning",
+          tone: "info",
           text: expect.stringContaining("persisted conversation cleanup"),
         }),
       );

@@ -17,7 +17,9 @@ import {
   ModelType,
   logger as coreLogger,
 } from "@elizaos/core";
-import { detectActiveBackend, type BackendKind } from "@miladyai/shared";
+import { detectActiveBackend } from "@miladyai/shared";
+
+import type { BackendKind } from "@miladyai/shared/contracts";
 
 import type {
   TrajectoryStatus,

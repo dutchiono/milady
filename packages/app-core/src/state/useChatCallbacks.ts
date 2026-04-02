@@ -912,7 +912,7 @@ export function useChatCallbacks(deps: UseChatCallbacksDeps) {
       try {
         const deletion = await client.deleteConversation(id);
         if (deletion.cleanup?.warning) {
-          setActionNotice(deletion.cleanup.warning, "warning", 5200);
+          setActionNotice(deletion.cleanup.warning, "info", 5200);
         }
         setConversations((prev) =>
           prev.filter((conversation) => conversation.id !== id),
