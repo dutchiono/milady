@@ -181,10 +181,32 @@ export const DEFAULT_WALLET_ROUTE_DEPENDENCIES: WalletRouteDependencies = {
   generateWalletForChain,
 };
 
+const EVM_PLUGIN_PACKAGE = "@elizaos/plugin-evm";
+
+function isPluginLoadedByName(
+  runtime: WalletRouteContext["runtime"],
+  pluginName: string,
+): boolean {
+  if (!runtime || !Array.isArray(runtime.plugins)) return false;
+  const shortId = pluginName.replace("@elizaos/plugin-", "");
+  const packageSuffix = `plugin-${shortId}`;
+  return runtime.plugins.some((plugin) => {
+    const name = typeof plugin?.name === "string" ? plugin.name : "";
+    return (
+      name === pluginName ||
+      name === shortId ||
+      name === packageSuffix ||
+      name.endsWith(`/${packageSuffix}`) ||
+      name.includes(shortId)
+    );
+  });
+}
+
 export interface WalletRouteContext
   extends RouteRequestMeta,
     Pick<RouteHelpers, "readJsonBody" | "json" | "error"> {
   config: ElizaConfig;
+  runtime?: { plugins?: Array<{ name?: string | null } | null> } | null;
   saveConfig: (config: ElizaConfig) => void;
   ensureWalletKeysInEnvAndConfig: (config: ElizaConfig) => boolean;
   resolveWalletExportRejection: (
@@ -204,6 +226,7 @@ export async function handleWalletRoutes(
     method,
     pathname,
     config,
+    runtime,
     saveConfig,
     ensureWalletKeysInEnvAndConfig,
     resolveWalletExportRejection,
@@ -523,7 +546,7 @@ export async function handleWalletRoutes(
     const rpcReadiness = resolveWalletRpcReadiness(config);
     const automationMode = resolveWalletAutomationMode(config);
     const localSignerAvailable = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
-    const pluginEvmLoaded = localSignerAvailable || Boolean(addresses.evmAddress);
+    const pluginEvmLoaded = isPluginLoadedByName(runtime, EVM_PLUGIN_PACKAGE);
     const pluginEvmRequired = localSignerAvailable || Boolean(addresses.evmAddress);
     const walletSource = localSignerAvailable
       ? "local"

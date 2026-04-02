@@ -5189,6 +5189,7 @@ async function handleRequest(
       method,
       pathname,
       config: state.config,
+      runtime: state.runtime,
       saveConfig: saveElizaConfig,
       ensureWalletKeysInEnvAndConfig,
       resolveWalletExportRejection,
