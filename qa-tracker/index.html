@@ -815,64 +815,134 @@
 
     <!-- Tabs -->
     <div class="tabs" id="tabs">
-      <button class="tab active" data-tab="setup">Setup <span class="badge" id="badge-setup">0</span></button>
-      <button class="tab" data-tab="maintenance">Maintenance <span class="badge" id="badge-maintenance">0</span></button>
-      <button class="tab" data-tab="support">Support <span class="badge" id="badge-support">0</span></button>
-      <button class="tab" data-tab="stack">Stack Changes <span class="badge" id="badge-stack">0</span></button>
+      <button class="tab active" data-tab="connectors">Connectors <span class="badge" id="badge-connectors">0</span></button>
+      <button class="tab" data-tab="plugins-ai">AI Providers <span class="badge" id="badge-plugins-ai">0</span></button>
+      <button class="tab" data-tab="plugins-feature">Features <span class="badge" id="badge-plugins-feature">0</span></button>
+      <button class="tab" data-tab="plugins-db">Database <span class="badge" id="badge-plugins-db">0</span></button>
+      <button class="tab" data-tab="plugins-app">Apps <span class="badge" id="badge-plugins-app">0</span></button>
+      <button class="tab" data-tab="plugins-stream">Streaming <span class="badge" id="badge-plugins-stream">0</span></button>
+      <button class="tab" data-tab="milady-plugins">Milady <span class="badge" id="badge-milady-plugins">0</span></button>
+      <button class="tab" data-tab="videos">Videos <span class="badge" id="badge-videos">0</span></button>
+      <button class="tab" data-tab="tutorials">Tutorials <span class="badge" id="badge-tutorials">0</span></button>
     </div>
+
     <!-- Sections (one per tab) -->
-    <div class="section active" id="section-setup">
-      <p class="section-desc">RepoFlow setup and architecture tasks. Human teams should manually verify outcomes; agents can attach notes and reports.</p>
+    <div class="section active" id="section-connectors">
+      <p class="section-desc">Verify each connector end-to-end on both Mac and Windows. Test connection, send/receive, reconnection, and platform-specific features.</p>
       <div class="filter-bar">
-        <input type="text" id="filter-setup" placeholder="Search setup tasks..." oninput="filterCards('setup')" />
-        <button class="filter-btn active" onclick="setStatusFilter('setup','all',this)">All</button>
-        <button class="filter-btn" onclick="setStatusFilter('setup','unclaimed',this)">Unclaimed</button>
-        <button class="filter-btn" onclick="setStatusFilter('setup','claimed',this)">In Progress</button>
-        <button class="filter-btn" onclick="setStatusFilter('setup','passed',this)">Passed</button>
-        <button class="filter-btn" onclick="setStatusFilter('setup','failed',this)">Failed</button>
+        <input type="text" id="filter-connectors" placeholder="Search connectors..." oninput="filterCards('connectors')" />
+        <button class="filter-btn active" onclick="setStatusFilter('connectors','all',this)">All</button>
+        <button class="filter-btn" onclick="setStatusFilter('connectors','unclaimed',this)">Unclaimed</button>
+        <button class="filter-btn" onclick="setStatusFilter('connectors','claimed',this)">In Progress</button>
+        <button class="filter-btn" onclick="setStatusFilter('connectors','passed',this)">Passed</button>
+        <button class="filter-btn" onclick="setStatusFilter('connectors','failed',this)">Failed</button>
       </div>
-      <div class="cards" id="cards-setup"></div>
+      <div class="cards" id="cards-connectors"></div>
     </div>
 
-    <div class="section" id="section-maintenance">
-      <p class="section-desc">Maintenance tasks for build, infrastructure, release safety, and security upkeep.</p>
+    <div class="section" id="section-plugins-ai">
+      <p class="section-desc">Verify AI model providers. Test chat completions, embeddings, and provider-specific features.</p>
       <div class="filter-bar">
-        <input type="text" id="filter-maintenance" placeholder="Search maintenance tasks..." oninput="filterCards('maintenance')" />
-        <button class="filter-btn active" onclick="setStatusFilter('maintenance','all',this)">All</button>
-        <button class="filter-btn" onclick="setStatusFilter('maintenance','unclaimed',this)">Unclaimed</button>
-        <button class="filter-btn" onclick="setStatusFilter('maintenance','claimed',this)">In Progress</button>
-        <button class="filter-btn" onclick="setStatusFilter('maintenance','passed',this)">Passed</button>
-        <button class="filter-btn" onclick="setStatusFilter('maintenance','failed',this)">Failed</button>
+        <input type="text" id="filter-plugins-ai" placeholder="Search AI providers..." oninput="filterCards('plugins-ai')" />
+        <button class="filter-btn active" onclick="setStatusFilter('plugins-ai','all',this)">All</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-ai','unclaimed',this)">Unclaimed</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-ai','claimed',this)">In Progress</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-ai','passed',this)">Passed</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-ai','failed',this)">Failed</button>
       </div>
-      <div class="cards" id="cards-maintenance"></div>
+      <div class="cards" id="cards-plugins-ai"></div>
     </div>
 
-    <div class="section" id="section-support">
-      <p class="section-desc">Operational support work: webhooks, service visibility, and runtime error handling.</p>
+    <div class="section" id="section-plugins-feature">
+      <p class="section-desc">Verify feature plugins. Test core functionality, edge cases, and runtime integration.</p>
       <div class="filter-bar">
-        <input type="text" id="filter-support" placeholder="Search support tasks..." oninput="filterCards('support')" />
-        <button class="filter-btn active" onclick="setStatusFilter('support','all',this)">All</button>
-        <button class="filter-btn" onclick="setStatusFilter('support','unclaimed',this)">Unclaimed</button>
-        <button class="filter-btn" onclick="setStatusFilter('support','claimed',this)">In Progress</button>
-        <button class="filter-btn" onclick="setStatusFilter('support','passed',this)">Passed</button>
-        <button class="filter-btn" onclick="setStatusFilter('support','failed',this)">Failed</button>
+        <input type="text" id="filter-plugins-feature" placeholder="Search feature plugins..." oninput="filterCards('plugins-feature')" />
+        <button class="filter-btn active" onclick="setStatusFilter('plugins-feature','all',this)">All</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-feature','unclaimed',this)">Unclaimed</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-feature','claimed',this)">In Progress</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-feature','passed',this)">Passed</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-feature','failed',this)">Failed</button>
       </div>
-      <div class="cards" id="cards-support"></div>
+      <div class="cards" id="cards-plugins-feature"></div>
     </div>
 
-    <div class="section" id="section-stack">
-      <p class="section-desc">Requested stack direction changes for RepoFlow. These should be human-approved and manually verified before downstream implementation work starts.</p>
+    <div class="section" id="section-plugins-db">
+      <p class="section-desc">Verify database plugins. Test CRUD, persistence, and migration handling.</p>
       <div class="filter-bar">
-        <input type="text" id="filter-stack" placeholder="Search stack changes..." oninput="filterCards('stack')" />
-        <button class="filter-btn active" onclick="setStatusFilter('stack','all',this)">All</button>
-        <button class="filter-btn" onclick="setStatusFilter('stack','unclaimed',this)">Unclaimed</button>
-        <button class="filter-btn" onclick="setStatusFilter('stack','claimed',this)">In Progress</button>
-        <button class="filter-btn" onclick="setStatusFilter('stack','passed',this)">Passed</button>
-        <button class="filter-btn" onclick="setStatusFilter('stack','failed',this)">Failed</button>
+        <input type="text" id="filter-plugins-db" placeholder="Search..." oninput="filterCards('plugins-db')" />
+        <button class="filter-btn active" onclick="setStatusFilter('plugins-db','all',this)">All</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-db','unclaimed',this)">Unclaimed</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-db','claimed',this)">In Progress</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-db','passed',this)">Passed</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-db','failed',this)">Failed</button>
       </div>
-      <div class="cards" id="cards-stack"></div>
+      <div class="cards" id="cards-plugins-db"></div>
     </div>
-</div><!-- /main-app -->
+
+    <div class="section" id="section-plugins-app">
+      <p class="section-desc">Verify app plugins. Test full application features and integration.</p>
+      <div class="filter-bar">
+        <input type="text" id="filter-plugins-app" placeholder="Search..." oninput="filterCards('plugins-app')" />
+        <button class="filter-btn active" onclick="setStatusFilter('plugins-app','all',this)">All</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-app','unclaimed',this)">Unclaimed</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-app','claimed',this)">In Progress</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-app','passed',this)">Passed</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-app','failed',this)">Failed</button>
+      </div>
+      <div class="cards" id="cards-plugins-app"></div>
+    </div>
+
+    <div class="section" id="section-plugins-stream">
+      <p class="section-desc">Verify streaming plugins. Test stream setup, stability, and platform integration.</p>
+      <div class="filter-bar">
+        <input type="text" id="filter-plugins-stream" placeholder="Search..." oninput="filterCards('plugins-stream')" />
+        <button class="filter-btn active" onclick="setStatusFilter('plugins-stream','all',this)">All</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-stream','unclaimed',this)">Unclaimed</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-stream','claimed',this)">In Progress</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-stream','passed',this)">Passed</button>
+        <button class="filter-btn" onclick="setStatusFilter('plugins-stream','failed',this)">Failed</button>
+      </div>
+      <div class="cards" id="cards-plugins-stream"></div>
+    </div>
+
+    <div class="section" id="section-milady-plugins">
+      <p class="section-desc">Verify Milady-specific plugins and Capacitor mobile plugins.</p>
+      <div class="filter-bar">
+        <input type="text" id="filter-milady-plugins" placeholder="Search..." oninput="filterCards('milady-plugins')" />
+        <button class="filter-btn active" onclick="setStatusFilter('milady-plugins','all',this)">All</button>
+        <button class="filter-btn" onclick="setStatusFilter('milady-plugins','unclaimed',this)">Unclaimed</button>
+        <button class="filter-btn" onclick="setStatusFilter('milady-plugins','claimed',this)">In Progress</button>
+        <button class="filter-btn" onclick="setStatusFilter('milady-plugins','passed',this)">Passed</button>
+        <button class="filter-btn" onclick="setStatusFilter('milady-plugins','failed',this)">Failed</button>
+      </div>
+      <div class="cards" id="cards-milady-plugins"></div>
+    </div>
+
+    <div class="section" id="section-videos">
+      <p class="section-desc">Short promo videos showcasing Milady's core features. Simple, visual, showing how easy Milady is to use.</p>
+      <div class="filter-bar">
+        <input type="text" id="filter-videos" placeholder="Search video tasks..." oninput="filterCards('videos')" />
+        <button class="filter-btn active" onclick="setStatusFilter('videos','all',this)">All</button>
+        <button class="filter-btn" onclick="setStatusFilter('videos','unclaimed',this)">Unclaimed</button>
+        <button class="filter-btn" onclick="setStatusFilter('videos','claimed',this)">In Progress</button>
+        <button class="filter-btn" onclick="setStatusFilter('videos','passed',this)">Passed</button>
+      </div>
+      <div class="cards" id="cards-videos"></div>
+    </div>
+
+    <div class="section" id="section-tutorials">
+      <p class="section-desc">Detailed step-by-step tutorials for connecting Milady to each platform. Written guides with screenshots.</p>
+      <div class="filter-bar">
+        <input type="text" id="filter-tutorials" placeholder="Search tutorials..." oninput="filterCards('tutorials')" />
+        <button class="filter-btn active" onclick="setStatusFilter('tutorials','all',this)">All</button>
+        <button class="filter-btn" onclick="setStatusFilter('tutorials','unclaimed',this)">Unclaimed</button>
+        <button class="filter-btn" onclick="setStatusFilter('tutorials','claimed',this)">In Progress</button>
+        <button class="filter-btn" onclick="setStatusFilter('tutorials','passed',this)">Passed</button>
+      </div>
+      <div class="cards" id="cards-tutorials"></div>
+    </div>
+
+  </div><!-- /main-app -->
 </div>
 
 <!-- Config Modal -->
@@ -915,12 +985,185 @@ const OAUTH_CONFIG = {
   scope: 'public_repo',
 };
 
-const DEFAULT_REPO_CONFIG = {
-  repo: 'dutchiono/milady',
-  branch: 'gh-pages',
-  path: 'qa-tracker/state.json',
-};
+// â”€â”€â”€ DATA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+const CONNECTORS = [
+  { id: 'acp', name: 'ACP', desc: 'Agent Communication Protocol gateway', icon: 'ðŸ”—' },
+  { id: 'blooio', name: 'Blooio', desc: 'iMessage/SMS via signed webhooks', icon: 'ðŸ’¬' },
+  { id: 'bluebubbles', name: 'BlueBubbles', desc: 'iMessage via BlueBubbles bridge', icon: 'ðŸ«§' },
+  { id: 'bluesky', name: 'Bluesky', desc: 'Bluesky social media', icon: 'ðŸ¦‹' },
+  { id: 'discord', name: 'Discord', desc: 'Guild channels, DMs, threads', icon: 'ðŸŽ®' },
+  { id: 'farcaster', name: 'Farcaster', desc: 'Publishing casts, social conversations', icon: 'ðŸ“¡' },
+  { id: 'feishu', name: 'Feishu', desc: 'Bots, chats, workflow notifications', icon: 'ðŸª¶' },
+  { id: 'github', name: 'GitHub', desc: 'Issues and discussions', icon: 'ðŸ™' },
+  { id: 'gmail-watch', name: 'Gmail Watch', desc: 'Email notifications', icon: 'ðŸ“§' },
+  { id: 'google-chat', name: 'Google Chat', desc: 'Bots, spaces, message workflows', icon: 'ðŸ’­' },
+  { id: 'imessage', name: 'iMessage', desc: 'Mac-based conversations', icon: 'ðŸ' },
+  { id: 'instagram', name: 'Instagram', desc: 'Social interactions', icon: 'ðŸ“¸' },
+  { id: 'iq', name: 'IQ', desc: 'On-chain chat (Solana)', icon: 'ðŸ§ ' },
+  { id: 'line', name: 'LINE', desc: 'Bot messaging, customer conversations', icon: 'ðŸ’š' },
+  { id: 'matrix', name: 'Matrix', desc: 'Federated chat rooms', icon: 'ðŸ—' },
+  { id: 'mattermost', name: 'Mattermost', desc: 'Team communication', icon: 'ðŸ—¨' },
+  { id: 'mcp', name: 'MCP', desc: 'Model Context Protocol', icon: 'ðŸ”Œ' },
+  { id: 'msteams', name: 'MS Teams', desc: 'Enterprise communication', icon: 'ðŸ¢' },
+  { id: 'nextcloud-talk', name: 'Nextcloud Talk', desc: 'Self-hosted chat', icon: 'â˜' },
+  { id: 'nostr', name: 'Nostr', desc: 'Relay-based social posting', icon: 'ðŸŸ£' },
+  { id: 'signal', name: 'Signal', desc: 'Encrypted messaging', icon: 'ðŸ”’' },
+  { id: 'slack', name: 'Slack', desc: 'Workspace messaging, events', icon: 'ðŸ“‹' },
+  { id: 'telegram', name: 'Telegram', desc: 'Bot chats, groups, channels', icon: 'âœˆ' },
+  { id: 'tlon', name: 'Tlon', desc: 'Urbit chat and social', icon: 'âš™' },
+  { id: 'twilio', name: 'Twilio', desc: 'SMS and voice', icon: 'ðŸ“±' },
+  { id: 'twitch', name: 'Twitch', desc: 'Live chat, channel events', icon: 'ðŸŽ¬' },
+  { id: 'twitter', name: 'Twitter / X', desc: 'Posts and interactions', icon: 'ðŸ¦' },
+  { id: 'wechat', name: 'WeChat', desc: 'Messaging via proxy API', icon: 'ðŸŸ¢' },
+  { id: 'whatsapp', name: 'WhatsApp', desc: 'Messaging automation', icon: 'ðŸ“²' },
+  { id: 'zalo', name: 'Zalo', desc: 'Official account messaging', icon: 'ðŸ’™' },
+  { id: 'zalouser', name: 'Zalo (Personal)', desc: 'Personal account messaging', icon: 'ðŸ’™' },
+];
+
+const PLUGINS_AI = [
+  { id: 'anthropic', name: 'Anthropic', desc: 'Claude chat and reasoning', icon: 'ðŸ¤–' },
+  { id: 'google-genai', name: 'Google GenAI', desc: 'Generative AI models', icon: 'ðŸ”' },
+  { id: 'groq', name: 'Groq', desc: 'Low-latency inference', icon: 'âš¡' },
+  { id: 'local-ai', name: 'Local AI', desc: 'Self-hosted OpenAI-compatible', icon: 'ðŸ ' },
+  { id: 'ollama', name: 'Ollama', desc: 'Local LLM execution', icon: 'ðŸ¦™' },
+  { id: 'openai', name: 'OpenAI', desc: 'Chat and embedding models', icon: 'ðŸ§ª' },
+  { id: 'openrouter', name: 'OpenRouter', desc: 'Multi-model routing', icon: 'ðŸ”€' },
+  { id: 'vercel-ai', name: 'Vercel AI Gateway', desc: "Vercel's AI gateway", icon: 'â–²' },
+  { id: 'xai', name: 'xAI', desc: 'X.AI model provider', icon: 'âœ–' },
+];
+
+const PLUGINS_FEATURE = [
+  { id: 'agent-orchestrator', name: 'Agent Orchestrator', desc: 'Coding agent orchestration via PTY' },
+  { id: 'agent-skills', name: 'Agent Skills', desc: 'Progressive disclosure skill spec' },
+  { id: 'auto-trader', name: 'Auto Trader', desc: 'Autonomous trading (Solana/Jupiter)' },
+  { id: 'browser', name: 'Browser', desc: 'Web browser automation' },
+  { id: 'cli', name: 'CLI', desc: 'Command-line interface' },
+  { id: 'code', name: 'Code', desc: 'Code execution and generation' },
+  { id: 'coding-agent', name: 'Coding Agent', desc: 'Coding agent swarms' },
+  { id: 'commands', name: 'Commands', desc: 'Chat commands (/help, /status, /reset)' },
+  { id: 'computeruse', name: 'Computer Use', desc: 'Computer automation' },
+  { id: 'copilot-proxy', name: 'Copilot Proxy', desc: 'GitHub Copilot proxy' },
+  { id: 'cron', name: 'Cron', desc: 'Scheduled task execution' },
+  { id: 'directives', name: 'Directives', desc: 'Inline directives (@think, @model)' },
+  { id: 'edge-tts', name: 'Edge TTS', desc: 'Edge Text-to-Speech' },
+  { id: 'elevenlabs', name: 'ElevenLabs', desc: 'Voice synthesis' },
+  { id: 'eliza-classic', name: 'Eliza Classic', desc: 'Original ELIZA patterns' },
+  { id: 'elizacloud', name: 'elizaOS Cloud', desc: 'Cloud services' },
+  { id: 'evm', name: 'EVM', desc: 'Ethereum blockchain interactions' },
+  { id: 'experience', name: 'Experience', desc: 'Learning framework' },
+  { id: 'form', name: 'Form', desc: 'Form handling' },
+  { id: 'goals', name: 'Goals', desc: 'Goal management and tracking' },
+  { id: 'hedera', name: 'Hedera', desc: 'Hedera blockchain' },
+  { id: 'knowledge', name: 'Knowledge', desc: 'RAG knowledge system' },
+  { id: 'linear', name: 'Linear', desc: 'Issue tracking' },
+  { id: 'local-embedding', name: 'Local Embedding', desc: 'Local embeddings' },
+  { id: 'lp-manager', name: 'LP Manager', desc: 'Liquidity pool management' },
+  { id: 'memory', name: 'Memory', desc: 'Agent memory management' },
+  { id: 'moltbook', name: 'Moltbook', desc: 'Reddit-style AI platform' },
+  { id: 'mysticism', name: 'Mysticism', desc: 'Mystical/spiritual features' },
+  { id: 'n8n', name: 'n8n', desc: 'Workflow automation' },
+  { id: 'pdf', name: 'PDF', desc: 'PDF operations' },
+  { id: 'personality', name: 'Personality', desc: 'Agent personality traits' },
+  { id: 'plugin-manager', name: 'Plugin Manager', desc: 'Plugin management' },
+  { id: 'polymarket', name: 'Polymarket', desc: 'Prediction markets' },
+  { id: 'prose', name: 'Prose', desc: 'Text processing' },
+  { id: 'rlm', name: 'RLM', desc: 'Reinforcement Learning' },
+  { id: 'robot-voice', name: 'Robot Voice', desc: 'Robot voice synthesis' },
+  { id: 'rolodex', name: 'Rolodex', desc: 'Contact management' },
+  { id: 'rss', name: 'RSS', desc: 'RSS feed integration' },
+  { id: 's3-storage', name: 'S3 Storage', desc: 'S3-compatible storage' },
+  { id: 'scheduling', name: 'Scheduling', desc: 'Scheduler and tasks' },
+  { id: 'scratchpad', name: 'Scratchpad', desc: 'Scratch notes' },
+  { id: 'secrets-manager', name: 'Secrets Manager', desc: 'Secrets management' },
+  { id: 'shell', name: 'Shell', desc: 'Shell execution' },
+  { id: 'simple-voice', name: 'Simple Voice', desc: 'Voice interaction' },
+  { id: 'social-alpha', name: 'Social Alpha', desc: 'Social media alpha' },
+  { id: 'solana', name: 'Solana', desc: 'Solana blockchain' },
+  { id: 'tee', name: 'TEE', desc: 'Trusted execution' },
+  { id: 'todo', name: 'Todo', desc: 'Task management' },
+  { id: 'trajectory-logger', name: 'Trajectory Logger', desc: 'Action logging' },
+  { id: 'trust', name: 'Trust', desc: 'Trust/reputation' },
+  { id: 'tts', name: 'TTS', desc: 'Text-to-Speech' },
+  { id: 'vision', name: 'Vision', desc: 'Image processing' },
+  { id: 'webhooks', name: 'Webhooks', desc: 'Webhook handling' },
+  { id: 'x402', name: 'x402', desc: 'X402 protocol' },
+];
+
+const PLUGINS_DB = [
+  { id: 'inmemorydb', name: 'In-Memory DB', desc: 'In-memory storage', icon: 'ðŸ’¾' },
+  { id: 'localdb', name: 'Local DB', desc: 'Local database', icon: 'ðŸ—„' },
+  { id: 'sql', name: 'SQL', desc: 'SQL persistent state', icon: 'ðŸ˜' },
+];
+
+const PLUGINS_APP = [
+  { id: 'babylon', name: 'Babylon', desc: 'Prediction market platform', icon: 'ðŸ›' },
+  { id: 'clawbal', name: 'Clawbal', desc: 'Chat application', icon: 'ðŸ¾' },
+  { id: 'minecraft', name: 'Minecraft', desc: 'Mineflayer automation', icon: 'â›' },
+  { id: 'roblox', name: 'Roblox', desc: 'Roblox game integration', icon: 'ðŸŽ²' },
+];
+
+const PLUGINS_STREAM = [
+  { id: 'custom-rtmp', name: 'Custom RTMP', desc: 'Custom RTMP streaming', icon: 'ðŸ“¡' },
+  { id: 'streaming-base', name: 'Streaming Base', desc: 'Base streaming', icon: 'ðŸŽ¥' },
+  { id: 'twitch-streaming', name: 'Twitch Streaming', desc: 'Twitch streams', icon: 'ðŸŸ£' },
+  { id: 'youtube-streaming', name: 'YouTube Streaming', desc: 'YouTube streams', icon: 'â–¶' },
+];
+
+const MILADY_PLUGINS = [
+  { id: 'plugin-roles', name: 'Roles', desc: 'Role-based access (OWNER, ADMIN, MEMBER)', icon: 'ðŸ‘‘' },
+  { id: 'plugin-wechat-milady', name: 'WeChat (Milady)', desc: 'WeChat via proxy (local)', icon: 'ðŸŸ¢' },
+  { id: 'cap-agent', name: 'Cap: Agent', desc: 'Mobile agent plugin', icon: 'ðŸ“±' },
+  { id: 'cap-camera', name: 'Cap: Camera', desc: 'Camera access', icon: 'ðŸ“·' },
+  { id: 'cap-canvas', name: 'Cap: Canvas', desc: 'Canvas drawing', icon: 'ðŸŽ¨' },
+  { id: 'cap-desktop', name: 'Cap: Desktop', desc: 'Desktop features', icon: 'ðŸ–¥' },
+  { id: 'cap-gateway', name: 'Cap: Gateway', desc: 'Gateway', icon: 'ðŸŒ' },
+  { id: 'cap-location', name: 'Cap: Location', desc: 'Location services', icon: 'ðŸ“' },
+  { id: 'cap-screencapture', name: 'Cap: Screen', desc: 'Screen capture', icon: 'ðŸ–¼' },
+  { id: 'cap-swabble', name: 'Cap: Swabble', desc: 'Swabble integration', icon: 'ðŸ”„' },
+  { id: 'cap-talkmode', name: 'Cap: TalkMode', desc: 'Talk mode', icon: 'ðŸŽ™' },
+];
+
+const VIDEOS = [
+  { id: 'vid-create', name: 'Create Agent in Seconds', desc: 'Show how fast and easy it is to spin up a new agent', icon: 'ðŸš€',
+    checks: ['Record screen capture', 'Show agent creation flow', 'Keep under 60 seconds', 'Add captions/overlays', 'Export final cut'] },
+  { id: 'vid-onchain', name: 'On-Chain Actions (BSC)', desc: 'Natural language blockchain interactions on BSC', icon: 'â›“',
+    checks: ['Show natural language prompt', 'Execute on-chain action', 'Show tx confirmation', 'Highlight BSC', 'Add captions', 'Export final cut'] },
+  { id: 'vid-models', name: 'Choose AI Models', desc: 'Switch between major AI models or run locally', icon: 'ðŸ§ ',
+    checks: ['Show model selection UI', 'Switch between providers', 'Demo local model (Ollama)', 'Show response comparison', 'Add captions', 'Export final cut'] },
+  { id: 'vid-sync', name: 'Multi-Platform Sync', desc: 'Sync agent across platforms using connectors', icon: 'ðŸ”—',
+    checks: ['Show connector setup', 'Demo multi-platform convo', 'Show sync in real-time', 'Add captions', 'Export final cut'] },
+  { id: 'vid-skills', name: 'Install Skills / Companion', desc: 'Agent grows and evolves with you through skills', icon: 'ðŸŒ±',
+    checks: ['Show skill installation', 'Demo skill in action', 'Show evolution concept', 'Add captions', 'Export final cut'] },
+  { id: 'vid-voice', name: 'Voice Interaction', desc: 'Talk to your agent with voice', icon: 'ðŸŽ™',
+    checks: ['Demo talk mode', 'Show voice recognition', 'Show agent response', 'Add captions', 'Export final cut'] },
+  { id: 'vid-knowledge', name: 'Knowledge / RAG', desc: 'Feed your agent knowledge and get informed answers', icon: 'ðŸ“š',
+    checks: ['Show knowledge upload', 'Ask question', 'Show sourced response', 'Add captions', 'Export final cut'] },
+  { id: 'vid-desktop', name: 'Desktop App', desc: 'Clean desktop experience on Mac and Windows', icon: 'ðŸ–¥',
+    checks: ['Show app launch', 'Navigate key features', 'Show Mac AND Windows', 'Add captions', 'Export final cut'] },
+];
+
+const TUTORIALS = [
+  { id: 'tut-telegram', name: 'Telegram Setup', desc: 'Step-by-step Telegram connector guide', icon: 'âœˆ',
+    checks: ['Intro/prerequisites', 'BotFather setup', 'Milady config', 'Test send/receive', 'Screenshots', 'Troubleshooting'] },
+  { id: 'tut-discord', name: 'Discord Setup', desc: 'Connect Milady to Discord servers', icon: 'ðŸŽ®',
+    checks: ['Intro/prerequisites', 'Dev portal setup', 'Bot permissions', 'Milady config', 'Test in guild', 'Screenshots', 'Troubleshooting'] },
+  { id: 'tut-slack', name: 'Slack Setup', desc: 'Connect Milady to Slack workspaces', icon: 'ðŸ“‹',
+    checks: ['Intro/prerequisites', 'Slack app creation', 'OAuth scopes', 'Milady config', 'Test in workspace', 'Screenshots', 'Troubleshooting'] },
+  { id: 'tut-feishu', name: 'Feishu Setup', desc: 'Connect Milady to Feishu', icon: 'ðŸª¶',
+    checks: ['Intro/prerequisites', 'Feishu bot creation', 'API credentials', 'Milady config', 'Test messaging', 'Screenshots', 'Troubleshooting'] },
+  { id: 'tut-wechat', name: 'WeChat Setup', desc: 'Connect Milady to WeChat via proxy', icon: 'ðŸŸ¢',
+    checks: ['Intro/prerequisites', 'Proxy API setup', 'Milady config', 'Test messaging', 'Screenshots', 'Troubleshooting'] },
+  { id: 'tut-twitter', name: 'Twitter / X Setup', desc: 'Connect Milady to Twitter/X', icon: 'ðŸ¦',
+    checks: ['Intro/prerequisites', 'Dev account', 'API keys', 'Milady config', 'Test posting', 'Screenshots', 'Troubleshooting'] },
+  { id: 'tut-whatsapp', name: 'WhatsApp Setup', desc: 'Connect Milady to WhatsApp', icon: 'ðŸ“²',
+    checks: ['Intro/prerequisites', 'Business API setup', 'Milady config', 'Test messaging', 'Screenshots', 'Troubleshooting'] },
+  { id: 'tut-msteams', name: 'MS Teams Setup', desc: 'Connect Milady to Microsoft Teams', icon: 'ðŸ¢',
+    checks: ['Intro/prerequisites', 'Azure app reg', 'Teams bot setup', 'Milady config', 'Test in channel', 'Screenshots', 'Troubleshooting'] },
+];
+
+const CONNECTOR_CHECKS = ['Installs without errors', 'Connects successfully', 'Sends messages', 'Receives messages', 'Handles reconnection', 'Platform-specific features'];
+const PLUGIN_CHECKS = ['Installs without errors', 'Loads in runtime', 'Core functionality works', 'No console errors', 'Edge cases handled'];
 const DEFAULT_TASK = {
   status: 'unclaimed',
   claimedBy: '',
@@ -931,177 +1174,9 @@ const DEFAULT_TASK = {
   reportVersion: '',
   updated: '',
 };
+const DEFAULT_REPO_CONFIG = { repo: '', branch: 'gh-pages', path: 'qa-tracker/state.json' };
 
-const CONNECTOR_CHECKS = [];
-const PLUGIN_CHECKS = [];
-
-// â”€â”€â”€ DATA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-const SETUP_TASKS = [
-  {
-    id: 'setup-design-system-landing',
-    name: 'Setup Design System & Landing Page',
-    desc: 'Dark-first landing page using shared shadcn/ui components and Tailwind theme tokens for RepoFlow.',
-    icon: 'SD',
-    checks: [
-      'Human reviewed dark-first landing page visually',
-      'Shared shadcn/ui components are used consistently',
-      'Tailwind theme tokens are applied',
-      'Auth flow entry point is clear',
-      'Notes include screenshots or agent report',
-    ],
-  },
-];
-
-const MAINTENANCE_TASKS = [
-  {
-    id: 'maintenance-ci-cd-pipeline',
-    name: 'CI/CD Pipeline',
-    desc: 'Configure GitHub Actions to build, test, and lint RepoFlow on pull requests and main merges.',
-    icon: 'CI',
-    checks: [
-      'Human verified PR workflow runs build test and lint',
-      'Main branch workflow is configured',
-      'Release outputs are produced reliably',
-      'Failure cases are documented in notes',
-    ],
-  },
-  {
-    id: 'maintenance-production-infrastructure',
-    name: 'Production Infrastructure',
-    desc: 'Set up hosting, environment variables, secrets, rollout configuration, and release hookup.',
-    icon: 'PI',
-    checks: [
-      'Human verified hosting target is configured',
-      'Environment variables and secrets are defined',
-      'Rollout configuration is documented',
-      'CI release outputs connect to deployment',
-    ],
-  },
-  {
-    id: 'maintenance-end-to-end-flow-testing',
-    name: 'End to End Flow Testing',
-    desc: 'Automated test suite for build, deploy, health check, and smoke workflow close to production.',
-    icon: 'E2',
-    checks: [
-      'Human verified end-to-end suite covers build and deploy',
-      'Health check step is included',
-      'Smoke workflow is included',
-      'Results are attached in notes',
-    ],
-  },
-  {
-    id: 'maintenance-patch-dependencies',
-    name: 'Patch Dependencies',
-    desc: 'Vulnerability checklist and safe dependency upgrades with compatibility checks.',
-    icon: 'PD',
-    checks: [
-      'Human reviewed dependency update checklist',
-      'Safe upgrades were applied or scoped',
-      'Compatibility checks were run',
-      'Regression notes are captured',
-    ],
-  },
-];
-
-const SUPPORT_TASKS = [
-  {
-    id: 'support-fix-webhook-failures',
-    name: 'Fix Webhook Failures',
-    desc: 'Reliable GitHub webhook handling with retry, dead-letter handling, and a dashboard of failed deliveries.',
-    icon: 'WH',
-    checks: [
-      'Human verified retry behavior',
-      'Dead-letter handling exists',
-      'Failed delivery dashboard is usable',
-      'GitHub sync path is tested manually',
-    ],
-  },
-  {
-    id: 'support-monitor-service-health',
-    name: 'Monitor Service Health',
-    desc: 'Single dashboard for API latency, error rate, WebSocket status, and queue or webhook status.',
-    icon: 'MH',
-    checks: [
-      'Human verified dashboard shows API latency and error rate',
-      'WebSocket status is visible',
-      'Queue or webhook processing status is visible',
-      'Dashboard is usable for incident detection',
-    ],
-  },
-  {
-    id: 'support-track-frontend-errors',
-    name: 'Track Frontend Errors',
-    desc: 'Capture, group, and review frontend runtime errors with stack traces and affected users or sessions.',
-    icon: 'FE',
-    checks: [
-      'Human verified runtime errors are captured',
-      'Errors are grouped meaningfully',
-      'Stack traces are visible',
-      'Affected user or session context is attached',
-    ],
-  },
-];
-
-const STACK_TASKS = [
-  {
-    id: 'stack-remove-clerk',
-    name: 'Remove Clerk',
-    desc: 'Remove Clerk from the RepoFlow stack and planning assumptions.',
-    icon: 'CL',
-    checks: [
-      'Human confirmed Clerk is removed from plan',
-      'Auth ownership is reassigned elsewhere',
-      'Notes mention replacement approach',
-    ],
-  },
-  {
-    id: 'stack-remove-drizzle',
-    name: 'Remove Drizzle',
-    desc: 'Remove Drizzle from the RepoFlow stack and planning assumptions.',
-    icon: 'DR',
-    checks: [
-      'Human confirmed Drizzle is removed from plan',
-      'Data layer impact is noted',
-      'Notes mention replacement approach',
-    ],
-  },
-  {
-    id: 'stack-remove-postgre',
-    name: 'Remove Postgre',
-    desc: 'Remove Postgre from the RepoFlow stack and planning assumptions.',
-    icon: 'PG',
-    checks: [
-      'Human confirmed Postgre is removed from plan',
-      'Persistence impact is noted',
-      'Notes mention replacement approach',
-    ],
-  },
-  {
-    id: 'stack-remove-image',
-    name: 'Remove Image',
-    desc: 'Remove Image from the RepoFlow stack and planning assumptions.',
-    icon: 'IM',
-    checks: [
-      'Human confirmed Image is removed from plan',
-      'UI asset impact is noted',
-      'Notes mention replacement approach',
-    ],
-  },
-  {
-    id: 'stack-add-convex',
-    name: 'Add Convex',
-    desc: 'Adopt Convex as the requested stack addition for RepoFlow.',
-    icon: 'CX',
-    checks: [
-      'Human confirmed Convex is added to plan',
-      'Affected architecture areas are noted',
-      'Migration or rollout notes are attached',
-    ],
-  },
-];
-
-// â”€â”€â”€ AUTH STATE// â”€â”€â”€ AUTH STATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€â”€ AUTH STATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 let currentUser = null;  // { login, name, avatar_url, token }
 let state = { tasks: {} };
@@ -1234,7 +1309,7 @@ async function signInWithPAT() {
 
 async function verifyAndStoreToken(token) {
   const res = await fetch('https://api.github.com/user', {
-    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json' },
+    headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' },
   });
   if (!res.ok) return false;
 
@@ -1423,20 +1498,33 @@ function getUserActiveClaim() {
 
 function getChecksForKey(key) {
   const sections = [
-    ...SETUP_TASKS.map(item => ({ item })),
-    ...MAINTENANCE_TASKS.map(item => ({ item })),
-    ...SUPPORT_TASKS.map(item => ({ item })),
-    ...STACK_TASKS.map(item => ({ item })),
+    ...CONNECTORS.map(item => ({ item, platformBased: true, checks: CONNECTOR_CHECKS })),
+    ...PLUGINS_AI.map(item => ({ item, platformBased: true, checks: PLUGIN_CHECKS })),
+    ...PLUGINS_FEATURE.map(item => ({ item, platformBased: true, checks: PLUGIN_CHECKS })),
+    ...PLUGINS_DB.map(item => ({ item, platformBased: true, checks: PLUGIN_CHECKS })),
+    ...PLUGINS_APP.map(item => ({ item, platformBased: true, checks: PLUGIN_CHECKS })),
+    ...PLUGINS_STREAM.map(item => ({ item, platformBased: true, checks: PLUGIN_CHECKS })),
+    ...MILADY_PLUGINS.map(item => ({ item, platformBased: true, checks: PLUGIN_CHECKS })),
+    ...VIDEOS.map(item => ({ item, platformBased: false })),
+    ...TUTORIALS.map(item => ({ item, platformBased: false })),
   ];
 
   for (const entry of sections) {
-    if (entry.item.id === key) return getChecksForItem(entry.item, null, null);
+    if (entry.platformBased) {
+      for (const platform of ['mac', 'win']) {
+        if (`${entry.item.id}__${platform}` === key) {
+          return getChecksForItem(entry.item, platform, entry.checks);
+        }
+      }
+      continue;
+    }
+    if (entry.item.id === key) return getChecksForItem(entry.item, null, entry.checks);
   }
 
   return [];
 }
 
-// â”€â”€â”€ TASK ACTIONS// â”€â”€â”€ TASK ACTIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€â”€ TASK ACTIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function claimTask(key) {
   const active = getUserActiveClaim();
@@ -1634,19 +1722,29 @@ function renderSection(containerId, items, section, platformBased, customChecks)
 }
 
 function renderAll() {
-  renderSection('cards-setup', SETUP_TASKS, 'setup', false);
-  renderSection('cards-maintenance', MAINTENANCE_TASKS, 'maintenance', false);
-  renderSection('cards-support', SUPPORT_TASKS, 'support', false);
-  renderSection('cards-stack', STACK_TASKS, 'stack', false);
+  renderSection('cards-connectors', CONNECTORS, 'connectors', true, CONNECTOR_CHECKS);
+  renderSection('cards-plugins-ai', PLUGINS_AI, 'plugins-ai', true, PLUGIN_CHECKS);
+  renderSection('cards-plugins-feature', PLUGINS_FEATURE, 'plugins-feature', true, PLUGIN_CHECKS);
+  renderSection('cards-plugins-db', PLUGINS_DB, 'plugins-db', true, PLUGIN_CHECKS);
+  renderSection('cards-plugins-app', PLUGINS_APP, 'plugins-app', true, PLUGIN_CHECKS);
+  renderSection('cards-plugins-stream', PLUGINS_STREAM, 'plugins-stream', true, PLUGIN_CHECKS);
+  renderSection('cards-milady-plugins', MILADY_PLUGINS, 'milady-plugins', true, PLUGIN_CHECKS);
+  renderSection('cards-videos', VIDEOS, 'videos', false);
+  renderSection('cards-tutorials', TUTORIALS, 'tutorials', false);
   updateStats();
 }
 
 function updateStats() {
   const allKeys = [
-    ...SETUP_TASKS.map(task => task.id),
-    ...MAINTENANCE_TASKS.map(task => task.id),
-    ...SUPPORT_TASKS.map(task => task.id),
-    ...STACK_TASKS.map(task => task.id),
+    ...CONNECTORS.flatMap(c => [`${c.id}__mac`, `${c.id}__win`]),
+    ...PLUGINS_AI.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    ...PLUGINS_FEATURE.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    ...PLUGINS_DB.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    ...PLUGINS_APP.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    ...PLUGINS_STREAM.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    ...MILADY_PLUGINS.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    ...VIDEOS.map(v => v.id),
+    ...TUTORIALS.map(t => t.id),
   ];
   let total = allKeys.length, unclaimed = 0, claimed = 0, passed = 0, failed = 0;
   allKeys.forEach(k => {
@@ -1666,20 +1764,28 @@ function updateStats() {
   const done = passed + failed;
   const pct = total ? Math.round((done / total) * 100) : 0;
   document.getElementById('progress-bar').style.width = pct + '%';
-  document.getElementById('progress-label').textContent = pct + '% verified (' + done + '/' + total + ')';
+  document.getElementById('progress-label').textContent = `${pct}% verified (${done}/${total})`;
   document.getElementById('my-claim-count').textContent = getUserActiveClaim() ? '1' : '0';
 
+  // Badge counts
   const sectionMap = {
-    'setup': SETUP_TASKS.map(task => task.id),
-    'maintenance': MAINTENANCE_TASKS.map(task => task.id),
-    'support': SUPPORT_TASKS.map(task => task.id),
-    'stack': STACK_TASKS.map(task => task.id),
+    'connectors': CONNECTORS.flatMap(c => [`${c.id}__mac`, `${c.id}__win`]),
+    'plugins-ai': PLUGINS_AI.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    'plugins-feature': PLUGINS_FEATURE.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    'plugins-db': PLUGINS_DB.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    'plugins-app': PLUGINS_APP.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    'plugins-stream': PLUGINS_STREAM.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    'milady-plugins': MILADY_PLUGINS.flatMap(p => [`${p.id}__mac`, `${p.id}__win`]),
+    'videos': VIDEOS.map(v => v.id),
+    'tutorials': TUTORIALS.map(t => t.id),
   };
   for (const [s, keys] of Object.entries(sectionMap)) {
     const badge = document.getElementById('badge-' + s);
     if (badge) badge.textContent = keys.length;
   }
 }
+
+// â”€â”€â”€ FILTERING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function filterCards(section) {
   const q = (document.getElementById('filter-' + section)?.value || '').toLowerCase();
@@ -1758,7 +1864,7 @@ function toast(msg, type = 'info') {
       currentUser = JSON.parse(saved);
       // Verify token is still valid
       const res = await fetch('https://api.github.com/user', {
-        headers: { 'Authorization': `Bearer ${currentUser.token}`, 'Accept': 'application/vnd.github.v3+json' },
+        headers: { 'Authorization': `token ${currentUser.token}`, 'Accept': 'application/vnd.github.v3+json' },
       });
       if (res.ok) {
         const user = await res.json();
@@ -1784,3 +1890,4 @@ function toast(msg, type = 'info') {
 </script>
 </body>
 </html>
+
