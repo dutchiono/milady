@@ -915,6 +915,26 @@ const OAUTH_CONFIG = {
   scope: 'public_repo',
 };
 
+const DEFAULT_REPO_CONFIG = {
+  repo: 'dutchiono/milady',
+  branch: 'gh-pages',
+  path: 'qa-tracker/state.json',
+};
+
+const DEFAULT_TASK = {
+  status: 'unclaimed',
+  claimedBy: '',
+  claimedByAvatar: '',
+  checks: {},
+  notes: '',
+  reportRef: '',
+  reportVersion: '',
+  updated: '',
+};
+
+const CONNECTOR_CHECKS = [];
+const PLUGIN_CHECKS = [];
+
 // â”€â”€â”€ DATA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const SETUP_TASKS = [
