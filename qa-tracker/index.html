@@ -1376,7 +1376,8 @@ function setSyncStatus(status, text) {
   label.textContent = text;
 }
 
-async function pullState() {
+async function pullState(options = {}) {
+  const { silent = false } = options;
   if (!repoConfig.repo) { toast('Configure repo settings first.', 'error'); return; }
   setSyncStatus('loading', 'Pulling...');
   try {
@@ -1408,10 +1409,11 @@ async function pullState() {
     saveLocal();
     renderAll();
     setSyncStatus('', 'Synced just now');
-    toast('Pulled latest state from GitHub.', 'success');
+    if (!silent) toast('Pulled latest state from GitHub.', 'success');
+    return true;
   } catch (e) {
     setSyncStatus('error', 'Pull failed');
-    toast('Pull failed: ' + e.message, 'error');
+    if (!silent) toast('Pull failed: ' + e.message, 'error');
     // Fall back to local
     const saved = localStorage.getItem('milady-qa-state');
     if (saved) {
@@ -1419,6 +1421,7 @@ async function pullState() {
       state.tasks = Object.fromEntries(Object.entries(parsed.tasks || {}).map(([key, task]) => [key, normalizeTask(task)]));
     }
     renderAll();
+    return false;
   }
 }
 
@@ -1453,6 +1456,11 @@ async function pushState() {
     });
     if (!putRes.ok) {
       const err = await putRes.json();
+      if (putRes.status === 409 || putRes.status === 422) {
+        await pullState({ silent: true });
+        toast('Sorry, this has already been claimed or updated. Tracker refreshed.', 'error');
+        return;
+      }
       throw new Error(err.message || putRes.status);
     }
     const result = await putRes.json();
@@ -1526,14 +1534,25 @@ function getChecksForKey(key) {
 
 // â”€â”€â”€ TASK ACTIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-function claimTask(key) {
+async function claimTask(key) {
   const active = getUserActiveClaim();
   if (active && active !== key) {
     toast('You already have an active claim. Finish or release it first. No cookie licking!', 'error');
     return;
   }
+  if (repoConfig.repo) {
+    const pulled = await pullState({ silent: true });
+    if (!pulled) {
+      toast('Could not refresh tracker state before claiming. Try again.', 'error');
+      return;
+    }
+  }
   const task = getTask(key);
-  if (task.status !== 'unclaimed') { toast('Already claimed.', 'error'); return; }
+  if (task.status !== 'unclaimed') {
+    renderAll();
+    toast('Sorry, this has already been claimed.', 'error');
+    return;
+  }
   task.status = 'claimed';
   task.claimedBy = currentUser.login;
   task.claimedByAvatar = currentUser.avatar_url;
