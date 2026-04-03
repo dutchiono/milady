@@ -1161,6 +1161,7 @@ async function handleOAuthCallback() {
   const code = params.get('code');
   const returnedState = params.get('state');
   if (!code) return false;
+  const redirectUri = window.location.origin + window.location.pathname;
 
   // Clear URL params
   window.history.replaceState({}, '', window.location.pathname);
@@ -1176,7 +1177,7 @@ async function handleOAuthCallback() {
     const res = await fetch(OAUTH_CONFIG.workerUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({ code, redirect_uri: redirectUri }),
     });
     if (!res.ok) throw new Error('Token exchange failed');
     const data = await res.json();
@@ -1213,7 +1214,7 @@ async function signInWithPAT() {
 
 async function verifyAndStoreToken(token) {
   const res = await fetch('https://api.github.com/user', {
-    headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' },
+    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json' },
   });
   if (!res.ok) return false;
 
@@ -1737,7 +1738,7 @@ function toast(msg, type = 'info') {
       currentUser = JSON.parse(saved);
       // Verify token is still valid
       const res = await fetch('https://api.github.com/user', {
-        headers: { 'Authorization': `token ${currentUser.token}`, 'Accept': 'application/vnd.github.v3+json' },
+        headers: { 'Authorization': `Bearer ${currentUser.token}`, 'Accept': 'application/vnd.github.v3+json' },
       });
       if (res.ok) {
         const user = await res.json();
