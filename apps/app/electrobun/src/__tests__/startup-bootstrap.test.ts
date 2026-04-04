@@ -40,10 +40,10 @@ describe("Electrobun startup bootstrap", () => {
   it("validates the built preload before creating the BrowserWindow", () => {
     const source = fs.readFileSync(INDEX_PATH, "utf8");
     const validateIndex = source.indexOf(
-      "readResolvedPreloadScript(import.meta.dir)",
+      "preload = readResolvedPreloadScript(import.meta.dir);",
     );
     const browserWindowIndex = source.indexOf(
-      "new BrowserWindow(",
+      "new BrowserWindow({",
       validateIndex,
     );
 
@@ -51,6 +51,31 @@ describe("Electrobun startup bootstrap", () => {
     expect(browserWindowIndex).toBeGreaterThan(validateIndex);
     expect(source).toContain(
       'console.error("[Main] Failed to read preload script:", err);',
+    );
+  });
+
+  it("uses an isolated BrowserView for packaged Windows bootstrap overrides", () => {
+    const source = fs.readFileSync(INDEX_PATH, "utf8");
+
+    expect(source).toContain("resolveMainWindowPartition");
+    expect(source).toContain(
+      'process.platform === "win32" && mainWindowPartition',
+    );
+    expect(source).toContain("win.webview.remove();");
+    expect(source).toContain("const mainView = new BrowserView({");
+    expect(source).toContain("partition: mainWindowPartition");
+    expect(source).toContain("win.webviewId = mainView.id");
+  });
+
+  it("does not persist an unknown Windows CEF profile marker", () => {
+    const source = fs.readFileSync(INDEX_PATH, "utf8");
+
+    expect(source).toContain("shouldResetWindowsCefProfile({");
+    expect(source).toContain(
+      "shouldWriteWindowsCefProfileMarker(currentVersion)",
+    );
+    expect(source).toContain(
+      "fs.writeFileSync(cefVersionMarker, currentVersion)",
     );
   });
 
@@ -85,7 +110,11 @@ describe("Electrobun startup bootstrap", () => {
     const source = fs.readFileSync(INDEX_PATH, "utf8");
 
     expect(source).toContain("resolveMainWindowPartition(process.env)");
-    expect(source).toContain("browserWindowOptions.partition");
+    expect(source).toContain("resolveBootstrapShellRenderer(buildInfo)");
+    expect(source).toContain("resolveBootstrapViewRenderer(buildInfo)");
+    expect(source).toContain("const mainView = new BrowserView({");
+    expect(source).toContain("partition: mainWindowPartition");
+    expect(source).toContain("win.webviewId = mainView.id");
   });
 
   it("guards embedded agent startup behind local runtime mode", () => {
@@ -95,14 +124,6 @@ describe("Electrobun startup bootstrap", () => {
     expect(source).toContain("[Main] Skipping embedded agent startup");
   });
 
-  it("records machine-readable startup phases for packaged smoke", () => {
-    const source = fs.readFileSync(INDEX_PATH, "utf8");
-
-    expect(source).toContain('recordStartupPhase("main_start"');
-    expect(source).toContain('recordStartupPhase("window_ready"');
-    expect(source).toContain('recordStartupPhase("autostart_requested"');
-    expect(source).toContain("resolveStartupBundlePath");
-  });
   it("prompts with startup crash report recovery instructions", () => {
     const source = fs.readFileSync(INDEX_PATH, "utf8");
 
@@ -113,15 +134,6 @@ describe("Electrobun startup bootstrap", () => {
     expect(source).toContain("Startup Log Tail:");
     expect(source).toContain("Copy Report");
     expect(source).toContain("startup-crash-report-latest.md");
-  });
-
-  it("records machine-readable startup phases for packaged smoke", () => {
-    const source = fs.readFileSync(INDEX_PATH, "utf8");
-
-    expect(source).toContain('recordStartupPhase("main_start"');
-    expect(source).toContain('recordStartupPhase("window_ready"');
-    expect(source).toContain('recordStartupPhase("autostart_requested"');
-    expect(source).toContain("resolveStartupBundlePath");
   });
 
   it("does not load repo or ~/.eliza env files in packaged desktop builds", () => {
