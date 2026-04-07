@@ -127,11 +127,7 @@ describe("buildPluginListResponse", () => {
 
     expect(discord.configured).toBe(true);
     expect(discord.validationErrors).toEqual([]);
-    expect(
-      discord.parameters.find(
-        (parameter) => parameter.key === "DISCORD_API_TOKEN",
-      )?.isSet,
-    ).toBe(true);
+    expect(discord.parameters).toEqual([]);
     expect(process.env.DISCORD_API_TOKEN).toBe("discord-token-123");
     expect(process.env.DISCORD_BOT_TOKEN).toBe("discord-token-123");
   });
@@ -244,19 +240,9 @@ describe("buildPluginListResponse", () => {
     expect(discord.configured).toBe(true);
   });
 
-  it("lists the bundled SelfControl plugin without setup fields", () => {
-    const selfControl = getPlugin("selfcontrol") as CompatPluginRecord & {
-      category: string;
-      configured: boolean;
-      enabled: boolean;
-      source: string;
-    };
-
-    expect(selfControl.enabled).toBe(false);
-    expect(selfControl.configured).toBe(true);
-    expect(selfControl.category).toBe("feature");
-    expect(selfControl.source).toBe("bundled");
-    expect(selfControl.parameters).toEqual([]);
-    expect(selfControl.validationErrors).toEqual([]);
+  it("does not expose SelfControl in the bundled compat plugin list", () => {
+    expect(() => getPlugin("selfcontrol")).toThrow(
+      'Expected bundled "selfcontrol" plugin to exist',
+    );
   });
 });
