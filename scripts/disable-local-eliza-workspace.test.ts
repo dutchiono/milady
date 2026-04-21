@@ -10,6 +10,7 @@ import {
   PINNED_VERSION_SOURCE_OVERRIDE,
   PINNED_VERSION_SOURCE_TEMPLATE,
   PINNED_VERSION_SOURCE_WORKSPACE,
+  PUBLISHED_ONLY_CI_VERSION_FALLBACKS,
   resolveCiOverrideSpecifiers,
   resolvePublishSafePinnedVersions,
 } from "./disable-local-eliza-workspace.mjs";
@@ -99,6 +100,33 @@ describe("disable-local-eliza-workspace", () => {
       ]),
     );
     expect(readRegistryInfo).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses the explicit published-only CI fallback for plugin-sql", () => {
+    const pinnedVersions = new Map([["@elizaos/plugin-sql", "2.0.0-alpha.19"]]);
+    const versionSources = new Map([
+      ["@elizaos/plugin-sql", PINNED_VERSION_SOURCE_WORKSPACE],
+    ]);
+    const dependencyNames = new Set(["@elizaos/plugin-sql"]);
+    const readRegistryInfo = vi.fn();
+
+    const resolved = resolvePublishSafePinnedVersions(pinnedVersions, {
+      dependencyNames,
+      versionSources,
+      readRegistryInfo,
+      log: () => {},
+      warn: () => {},
+    });
+
+    expect(resolved).toEqual(
+      new Map([
+        [
+          "@elizaos/plugin-sql",
+          PUBLISHED_ONLY_CI_VERSION_FALLBACKS["@elizaos/plugin-sql"],
+        ],
+      ]),
+    );
+    expect(readRegistryInfo).not.toHaveBeenCalled();
   });
 
   it("collects workspace protocol dependencies and excludes local-only packages", () => {

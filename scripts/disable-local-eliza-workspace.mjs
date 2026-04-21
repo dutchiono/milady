@@ -74,6 +74,9 @@ export const CI_OVERRIDE_SPECIFIERS = {
   "@elizaos/plugin-wechat": "file:./scripts/ci-stubs/elizaos-plugin-wechat",
   "@elizaos/ui": "file:./eliza/packages/ui",
 };
+export const PUBLISHED_ONLY_CI_VERSION_FALLBACKS = {
+  "@elizaos/plugin-sql": "2.0.0-alpha.18",
+};
 export const ELIZA_RUNTIME_CI_OVERRIDE_SPECIFIERS = {
   "@elizaos/plugin-app-control":
     "file:../scripts/ci-stubs/elizaos-plugin-app-control",
@@ -574,6 +577,18 @@ export function resolvePublishSafePinnedVersions(
 
     if (!shouldResolveFromRegistry) {
       resolvedVersions.set(dependencyName, preferredVersion);
+      continue;
+    }
+
+    const explicitFallbackVersion =
+      PUBLISHED_ONLY_CI_VERSION_FALLBACKS[dependencyName];
+    if (isExactRegistryVersion(explicitFallbackVersion)) {
+      if (explicitFallbackVersion !== preferredVersion) {
+        log(
+          `[disable-local-eliza-workspace] Falling back ${dependencyName} ${preferredVersion} -> ${explicitFallbackVersion} for published-only CI`,
+        );
+      }
+      resolvedVersions.set(dependencyName, explicitFallbackVersion);
       continue;
     }
 
