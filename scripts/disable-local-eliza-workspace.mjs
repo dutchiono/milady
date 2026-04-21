@@ -68,9 +68,9 @@ export const NESTED_INSTALLABLE_PACKAGE_GLOBS = [
   "eliza/packages/app-core/platforms/*",
 ];
 export const CI_OVERRIDE_SPECIFIERS = {
-  "@elizaos/shared": "file:./eliza/packages/shared",
   "@elizaos/plugin-app-control":
     "file:./scripts/ci-stubs/elizaos-plugin-app-control",
+  "@elizaos/shared": "file:./eliza/packages/shared",
   "@elizaos/plugin-wechat": "file:./scripts/ci-stubs/elizaos-plugin-wechat",
   "@elizaos/ui": "file:./eliza/packages/ui",
 };
