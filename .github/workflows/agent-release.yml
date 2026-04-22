@@ -115,13 +115,16 @@ jobs:
             // ── Step 2: Trust check ─────────────────────────────────
             const { computeTrustScore, DEFAULT_CONFIG, expandState } = require('./.github/trust-scoring.cjs');
 
+            const isCanonicalRepo = context.repo.owner === 'milady-ai';
+            const isForkOwner = !isCanonicalRepo && actor === context.repo.owner;
+
             let isOrgMember = false;
             try {
               const { status } = await github.rest.orgs.checkMembershipForUser({ org: context.repo.owner, username: actor });
               isOrgMember = status === 204 || status === 302;
             } catch (e) {}
 
-            let allowed = isOrgMember;
+            let allowed = isOrgMember || isForkOwner;
             if (!allowed) {
               let trustTier = 'untested', trustScore = DEFAULT_CONFIG.initialScore;
               try {
@@ -145,7 +148,7 @@ jobs:
               }
             }
 
-            core.info(`Trust: allowed=${allowed} (org=${isOrgMember})`);
+            core.info(`Trust: allowed=${allowed} (org=${isOrgMember}, forkOwner=${isForkOwner})`);
             core.setOutput('proceed', allowed ? 'true' : 'false');
 
   # ── 2. Resolve version ─────────────────────────────────────────────
@@ -759,4 +762,3 @@ jobs:
       push_image: true
       source_sha: ${{ github.sha }}
     secrets: inherit
-
