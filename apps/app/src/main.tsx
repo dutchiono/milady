@@ -35,6 +35,7 @@ import {
 import {
   applyForceFreshOnboardingReset,
   applyLaunchConnectionFromUrl,
+  applyLaunchConnection,
   installDesktopPermissionsClientPatch,
   installForceFreshOnboardingClientPatch,
   installLocalProviderCloudPreferencePatch,
@@ -71,6 +72,10 @@ import {
 import "@elizaos/app-companion/register";
 // Side-effect: register LifeOps sidebar widgets + client methods on ElizaClient.
 import "@elizaos/app-lifeops/widgets";
+// Side-effect: register coding-agent (task-coordinator) slots so app-core
+// slot wrappers (CodingAgentControlChip, PtyConsoleBase, etc.) render the
+// real components instead of nulls.
+import "@elizaos/app-task-coordinator/register-slots";
 // Side-effect: register game operator surfaces + detail extensions.
 import "@elizaos/app-babylon/ui";
 import "@elizaos/app-scape/ui";
@@ -417,9 +422,14 @@ function handleDeepLink(url: string): void {
             parsed.searchParams.get("token") ??
             parsed.searchParams.get("accessToken") ??
             null;
+          const connection = applyLaunchConnection({
+            kind: "remote",
+            apiBase: validatedUrl.href,
+            token,
+          });
           dispatchAppEvent(CONNECT_EVENT, {
-            gatewayUrl: validatedUrl.href,
-            token: token ?? undefined,
+            gatewayUrl: connection.apiBase,
+            token: connection.token ?? undefined,
           });
         } catch {
           console.error(`${APP_LOG_PREFIX} Invalid gateway URL format`);
