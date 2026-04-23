@@ -2,30 +2,32 @@
 
 **Date:** 2026-04-23
 **Owner:** dutch (Windows dev) + agent team
-**Status:** In progress — Phase 1.1 backend complete (uncommitted), Phase 1.2 not started
+**Status:** In progress — Phase 1 multi-calendar foundation complete through cloud-managed support; Phase 2 not started
 
 ## Handoff notes (2026-04-23)
 
-Work is **uncommitted** on branch `wip/local-install-stability-20260423`. Next agent: run `git status` to see touched files, then continue from Phase 1.2. No build/commit yet.
+Work has advanced well past the original handoff. Multi-calendar support now covers local and cloud-managed Google feeds, per-calendar include prefs, merged feed aggregation, settings UI, and action-layer bypass for hidden calendars. Remaining work starts at Phase 2.
 
-**Phase 1.1 done:**
-- `LifeOpsCalendarSummary`, `ListLifeOpsCalendarsRequest/Response`, `SetLifeOpsCalendarIncludedRequest/Response` contracts added in `eliza/packages/shared/src/contracts/lifeops.ts` (around line 1651).
-- `GOOGLE_CALENDAR_LIST_ENDPOINT`, `GoogleCalendarListEntry`, `listGoogleCalendars({ accessToken })` added in `eliza/apps/app-lifeops/src/lifeops/google-calendar.ts`.
-- `listCalendars(requestUrl, request)` method on `LifeOpsCalendarService` interface + mixin class in `eliza/apps/app-lifeops/src/lifeops/service-mixin-calendar.ts`. Local-managed grants only — cloud-managed grants skipped silently with TODO (no `googleManagedClient.listCalendars` exists yet).
-- `GET /api/lifeops/calendar/calendars` route in `eliza/apps/app-lifeops/src/routes/lifeops-routes.ts` (right before `/api/lifeops/calendar/next-context`).
-- `getLifeOpsCalendars(options?)` client method in `eliza/packages/app-core/src/api/client-lifeops.ts`.
-- Localized `tsc --noEmit` on app-lifeops and app-core shows no new errors on touched files.
+**Phase 1 done:**
+- App-side calendar discovery, include preferences, merged feed aggregation, settings UI, and calendar-origin labels are implemented in `eliza/apps/app-lifeops`.
+- Action-layer calendar reads explicitly bypass the feed toggle so agent actions still see every authorized calendar.
+- Cloud-managed Google now exposes a real calendar-list route at `eliza/cloud/app/api/v1/milady/google/calendar/calendars/route.ts`, and the managed app client consumes it via `google-managed-client.ts`.
+- The merged default feed no longer assumes `primary` for cloud-managed users when discoverable calendars exist, which fixes secondary calendars such as Quinn being invisible.
+- Verification completed:
+  - `bun run --cwd eliza/apps/app-lifeops test -- service-mixin-calendar.test.ts`
+  - `bunx turbo run typecheck --filter=@elizaos/app-lifeops`
+  - `bun run --cwd eliza/cloud check-types`
+  - `bun test --preload ./packages/tests/load-env.ts packages/tests/unit/milady-google-multi-account.test.ts packages/tests/unit/milady-google-calendar-calendars-route.test.ts` (from `eliza/cloud`)
+  - `bun run build`
+  - `bun run desktop:preflight`
 
-**Not yet done (start here next session):**
-- Phase 1.2: preferences store — `eliza/apps/app-lifeops/src/lifeops/repository.ts` does NOT currently have a `CREATE TABLE` or visible `preferences` method. Search there for the existing preferences persistence pattern (likely in a sibling `-repository.ts` or service-mixin). Add `calendarFeedIncludes: Record<calendarId, boolean>`, default `true` on first sight of a new calendarId. Then `PUT /api/lifeops/calendar/calendars/:id/include` + `setLifeOpsCalendarIncluded()` client.
-- Phase 1.3: `getCalendarFeed` aggregation in `service-mixin-calendar.ts` (line 416). Currently defaults `calendarId: "primary"`; change so missing `calendarId` → loop over `listCalendars` × `calendarFeedIncludes === true`, merge+sort by startAt, dedupe by event id. Each merged event must carry `calendarId` + `calendarSummary`.
-- Phase 1.4: Settings UI checkbox panel.
-- Phase 1.5: Audit `eliza/apps/app-lifeops/src/actions/` — calendar actions must read **all** authorized calendars regardless of UI toggle.
-- Phase 1.6: tests + verify + manual desktop check + commit `feat(lifeops): multi-calendar feed with per-calendar include toggle`.
+**Next up (start here next session):**
+- Phase 2: `COMPOSE_BRIEFING`
+- Optional follow-up for Phase 1: add a higher-level desktop/UI smoke specifically asserting a secondary cloud-managed calendar renders in the LifeOps month view.
 
 **Landmines / context:**
 - `grant.accountEmail` does not exist — use `grant.identity.email` (Record<string, unknown>), guard with `typeof === "string"`. Already applied in `listCalendars`.
-- Root cause of "Nothing this week" bug: widget → feed → backend defaults `calendarId = "primary"`. Secondary calendars (user's "Dutch"/custody calendar) invisible. Fix lands in Phase 1.3.
+- Root cause of the original "Nothing this week" bug was broader than the widget feed: cloud-managed mode had no calendar discovery path, so secondary calendars (for example Quinn / custody) were never queried at all. Fix now spans both app-lifeops and `eliza/cloud`.
 - Contracts barrel: `eliza/apps/app-lifeops/src/contracts/index.ts` re-exports from `@elizaos/shared/contracts/lifeops`, so adding to shared contracts file is sufficient.
 - Windows dev env. No bash-only scripts.
 
@@ -65,33 +67,34 @@ Additionally, the calendar widget and feed only query `calendarId: "primary"` �
 
 - [x] Add `listGoogleCalendars({ accessToken })` to [eliza/apps/app-lifeops/src/lifeops/google-calendar.ts](eliza/apps/app-lifeops/src/lifeops/google-calendar.ts)
 - [x] Add contract type `LifeOpsCalendarSummary` (+ List/Set request/response contracts) in [eliza/packages/shared/src/contracts/lifeops.ts](eliza/packages/shared/src/contracts/lifeops.ts)
-- [x] `listCalendars` method on `LifeOpsCalendarService` (local-managed grants only; cloud skipped) in [eliza/apps/app-lifeops/src/lifeops/service-mixin-calendar.ts](eliza/apps/app-lifeops/src/lifeops/service-mixin-calendar.ts)
+- [x] `listCalendars` method on `LifeOpsCalendarService` in [eliza/apps/app-lifeops/src/lifeops/service-mixin-calendar.ts](eliza/apps/app-lifeops/src/lifeops/service-mixin-calendar.ts)
 - [x] Expose `GET /api/lifeops/calendar/calendars` route in [eliza/apps/app-lifeops/src/routes/lifeops-routes.ts](eliza/apps/app-lifeops/src/routes/lifeops-routes.ts) returning `{ calendars: LifeOpsCalendarSummary[] }`
 - [x] Add `getLifeOpsCalendars()` to client in [eliza/packages/app-core/src/api/client-lifeops.ts](eliza/packages/app-core/src/api/client-lifeops.ts)
+- [x] Add cloud-managed calendar discovery route in `eliza/cloud/app/api/v1/milady/google/calendar/calendars/route.ts` and wire `googleManagedClient.listCalendars(...)`
 
 ### 1.2 Backend — persist per-calendar include state
 
-- [ ] Extend the lifeops preferences store (look for existing preferences persistence under `eliza/apps/app-lifeops/src/lifeops/repository.ts`) with a `calendarFeedIncludes: Record<calendarId, boolean>` field. Default `true` for every calendar the user has.
-- [ ] When a new calendar appears in `calendarList` that isn't in `calendarFeedIncludes`, default it to `true` (opt-out, not opt-in).
-- [ ] Add `setLifeOpsCalendarIncluded(calendarId, included)` on client + route.
+- [x] Extend the lifeops preferences store (look for existing preferences persistence under `eliza/apps/app-lifeops/src/lifeops/repository.ts`) with a `calendarFeedIncludes: Record<calendarId, boolean>` field. Default `true` for every calendar the user has.
+- [x] When a new calendar appears in `calendarList` that isn't in `calendarFeedIncludes`, default it to `true` (opt-out, not opt-in).
+- [x] Add `setLifeOpsCalendarIncluded(calendarId, included)` on client + route.
 
 ### 1.3 Backend — aggregate feed across included calendars
 
-- [ ] Modify `getCalendarFeed` in [eliza/apps/app-lifeops/src/lifeops/service-mixin-calendar.ts](eliza/apps/app-lifeops/src/lifeops/service-mixin-calendar.ts) to:
+- [x] Modify `getCalendarFeed` in [eliza/apps/app-lifeops/src/lifeops/service-mixin-calendar.ts](eliza/apps/app-lifeops/src/lifeops/service-mixin-calendar.ts) to:
   - If `calendarId` param is explicitly passed (for direct queries), behave as today — return events for that calendar only.
   - If no `calendarId` passed (widget / briefing default), fetch events across **all calendars where `calendarFeedIncludes[id] === true`**, merge + sort by `startAt`, dedupe by `id`.
-- [ ] Each event in the merged feed must carry `calendarId` and `calendarSummary` so the UI can show origin.
+- [x] Each event in the merged feed must carry `calendarId` and `calendarSummary` so the UI can show origin.
 
 ### 1.4 UI — widget unchanged behavior, settings added
 
-- [ ] [eliza/apps/app-lifeops/src/components/chat/widgets/plugins/lifeops-channels.tsx](eliza/apps/app-lifeops/src/components/chat/widgets/plugins/lifeops-channels.tsx) — no change to the fetch call. The backend already aggregates.
-- [ ] New settings panel section: "Which calendars appear in your feed?" Renders checkbox per `LifeOpsCalendarSummary`, wired to `setLifeOpsCalendarIncluded`. Show Google color dot.
-- [ ] Settings location: find lifeops settings surface (search for existing lifeops settings UI before creating a new one).
+- [x] [eliza/apps/app-lifeops/src/components/chat/widgets/plugins/lifeops-channels.tsx](eliza/apps/app-lifeops/src/components/chat/widgets/plugins/lifeops-channels.tsx) — no change to the fetch call. The backend already aggregates.
+- [x] New settings panel section: "Which calendars appear in your feed?" Renders checkbox per `LifeOpsCalendarSummary`, wired to `setLifeOpsCalendarIncluded`. Show Google color dot.
+- [x] Settings location: find lifeops settings surface (search for existing lifeops settings UI before creating a new one).
 
 ### 1.5 Agent — full-calendar awareness regardless of UI toggle
 
-- [ ] Audit every lifeops calendar action in [eliza/apps/app-lifeops/src/actions/](eliza/apps/app-lifeops/src/actions/) — confirm they read across all authorized calendars, not just the feed-included ones.
-- [ ] If any action defaults to `primary` or to `feed-included` only, fix it: action-layer reads **everything authorized**. Toggle is UI-only.
+- [x] Audit every lifeops calendar action in [eliza/apps/app-lifeops/src/actions/](eliza/apps/app-lifeops/src/actions/) — confirm they read across all authorized calendars, not just the feed-included ones.
+- [x] If any action defaults to `primary` or to `feed-included` only, fix it: action-layer reads **everything authorized**. Toggle is UI-only.
 - [ ] Provider that exposes calendars to the planner: surface list of all calendars with their `includeInFeed` flag so the agent can say "you have this on Quinn calendar (hidden from sidebar, you can toggle that in settings)."
 
 ### 1.6 Verification
