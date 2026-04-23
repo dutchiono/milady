@@ -350,10 +350,20 @@ export function resolveTypeScriptIgnoreDeprecationsTarget(
   repoRoot = DEFAULT_REPO_ROOT,
 ) {
   const rootPackageJson = readPackageJson(repoRoot);
-  const versionSpecifier =
-    rootPackageJson?.devDependencies?.typescript ??
-    rootPackageJson?.dependencies?.typescript;
-  const major = parseFirstNumericVersionSegment(versionSpecifier);
+  const elizaPackageJson = readPackageJson(path.join(repoRoot, "eliza"));
+  const versionSpecifiers = [
+    rootPackageJson?.devDependencies?.typescript,
+    rootPackageJson?.dependencies?.typescript,
+    elizaPackageJson?.devDependencies?.typescript,
+    elizaPackageJson?.dependencies?.typescript,
+  ];
+  const major = versionSpecifiers.reduce((highest, versionSpecifier) => {
+    const parsed = parseFirstNumericVersionSegment(versionSpecifier);
+    if (parsed === null) {
+      return highest;
+    }
+    return highest === null ? parsed : Math.max(highest, parsed);
+  }, null);
 
   return major !== null && major >= 6 ? "6.0" : "5.0";
 }
