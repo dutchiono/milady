@@ -305,6 +305,21 @@ describe("release workflow path contract", () => {
     );
   });
 
+  it("probes the Electrobun bun entry build before release packaging", () => {
+    const releaseElectrobun = readWorkflow("release-electrobun.yml");
+    const probeBuild = releaseElectrobun.indexOf(
+      "name: Probe Electrobun bun entry build",
+    );
+    const packageBuild = releaseElectrobun.indexOf("name: Build Electrobun app");
+
+    expect(probeBuild).toBeGreaterThanOrEqual(0);
+    expect(packageBuild).toBeGreaterThanOrEqual(0);
+    expect(probeBuild).toBeLessThan(packageBuild);
+    expect(releaseElectrobun).toContain(
+      "bun build src/index.ts --target=bun --outdir",
+    );
+  });
+
   it("installs browser automation deps in the published-workspace fallback shim", () => {
     const fallbackScript = fs.readFileSync(
       path.join(

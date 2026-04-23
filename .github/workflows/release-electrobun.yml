@@ -638,6 +638,19 @@ jobs:
         run: |
           node eliza/packages/app-core/scripts/build-patched-electrobun-cli.mjs "${{ steps.resolve-electrobun.outputs.package-dir }}"
 
+      - name: Probe Electrobun bun entry build
+        shell: bash
+        run: |
+          cd eliza/packages/app-core/platforms/electrobun
+          probe_dir="$(pwd)/build/electrobun-bun-entry-probe"
+          rm -rf "$probe_dir"
+
+          if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
+            arch -x86_64 bun build src/index.ts --target=bun --outdir "$probe_dir"
+          else
+            bun build src/index.ts --target=bun --outdir "$probe_dir"
+          fi
+
       - name: Build Electrobun app
         run: |
           if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
