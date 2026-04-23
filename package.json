@@ -144,6 +144,7 @@
     "smoke:api-status:prod": "node eliza/packages/app-core/scripts/smoke-api-status.mjs https://milady.ai https://app.milady.ai",
     "smoke:lifeops": "node eliza/packages/app-core/scripts/smoke-lifeops.mjs",
     "browser-bridge:package:release": "cd apps/browser-bridge && bun run package:release",
+    "lifeops:browser:package:release": "bun run browser-bridge:package:release",
     "ui:sync:desktop": "node eliza/packages/app-core/scripts/sync-desktop-renderer.mjs",
     "ui:sync:desktop:watch": "node eliza/packages/app-core/scripts/sync-desktop-renderer.mjs --watch",
     "start": "node eliza/packages/app-core/scripts/rt.mjs eliza/packages/app-core/scripts/run-node.mjs start",

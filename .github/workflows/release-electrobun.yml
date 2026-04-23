@@ -266,7 +266,7 @@ jobs:
         run: bun run release:check
 
   build-browser-companions:
-    name: Build Agent Browser Bridge companions
+    name: Build LifeOps Browser companions
     needs: [prepare, validate-release]
     runs-on: macos-14
     timeout-minutes: 60
@@ -321,21 +321,21 @@ jobs:
       - name: Run repository postinstall patches
         run: bun run postinstall
 
-      - name: Package Agent Browser Bridge release bundles
+      - name: Package LifeOps Browser release bundles
         id: package-browser-bridge
         run: |
-          if bun run browser-bridge:package:release; then
+          if bun run lifeops:browser:package:release; then
             echo "packaged=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::Agent Browser Bridge packaging failed; desktop release will continue without browser companion bundles."
+            echo "::warning::LifeOps Browser packaging failed; desktop release will continue without browser companion bundles."
             echo "packaged=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Upload Agent Browser Bridge release artifacts
+      - name: Upload LifeOps Browser release artifacts
         if: steps.package-browser-bridge.outputs.packaged == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: browser-bridge-store-bundles
+          name: lifeops-browser-store-bundles
           path: |
             apps/browser-bridge/dist/artifacts/browser-bridge-chrome-v*.zip
             apps/browser-bridge/dist/artifacts/browser-bridge-safari-v*.zip
@@ -1541,7 +1541,7 @@ jobs:
           rm -f /tmp/release_key
 
   publish-browser-companions:
-    name: Publish Agent Browser Bridge companions
+    name: Publish LifeOps Browser companions
     if: ${{ (github.event_name != 'workflow_call' || inputs.publish_release) && needs.build-browser-companions.outputs.packaged == 'true' && needs.release.result == 'success' }}
     needs: [prepare, build-browser-companions, release]
     runs-on: ${{ vars.RUNNER_UBUNTU || 'ubuntu-24.04' }}
@@ -1549,17 +1549,17 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download Agent Browser Bridge artifacts
+      - name: Download LifeOps Browser artifacts
         uses: actions/download-artifact@v4
         with:
           path: browser-bridge-release
-          pattern: browser-bridge-*
+          pattern: lifeops-browser-*
           merge-multiple: false
 
-      - name: List Agent Browser Bridge artifacts
+      - name: List LifeOps Browser artifacts
         run: find browser-bridge-release -type f | sort 2>/dev/null || echo "No Agent Browser Bridge artifacts"
 
-      - name: Attach Agent Browser Bridge assets to GitHub release
+      - name: Attach LifeOps Browser assets to GitHub release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}

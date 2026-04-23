@@ -202,6 +202,39 @@ describe("release workflow path contract", () => {
     expect(buildCloudImage).toContain(
       "Inject tailwindcss into eliza/packages/app-core/node_modules",
     );
+    expect(buildCloudImage).toContain(
+      "uses: docker/setup-buildx-action@v3",
+    );
+    expect(buildCloudImage).toContain("continue-on-error: true");
+    expect(buildCloudImage).toContain(
+      "Build and push cloud app image with Buildx fallback",
+    );
+  });
+
+  it("keeps the electrobun release workflow aligned with the LifeOps Browser companion contract", () => {
+    const releaseElectrobun = readWorkflow("release-electrobun.yml");
+    const rootPackageJson = fs.readFileSync(
+      path.join(repoRoot, "package.json"),
+      "utf8",
+    );
+
+    expect(rootPackageJson).toContain(
+      '"lifeops:browser:package:release": "bun run browser-bridge:package:release"',
+    );
+    expect(releaseElectrobun).toContain(
+      "name: Build LifeOps Browser companions",
+    );
+    expect(releaseElectrobun).toContain(
+      "if bun run lifeops:browser:package:release; then",
+    );
+    expect(releaseElectrobun).toContain("name: lifeops-browser-store-bundles");
+    expect(releaseElectrobun).toContain(
+      "name: Publish LifeOps Browser companions",
+    );
+    expect(releaseElectrobun).toContain(
+      "name: Attach LifeOps Browser assets to GitHub release",
+    );
+    expect(releaseElectrobun).toContain("pattern: lifeops-browser-*");
   });
 
   it("installs browser automation deps in the published-workspace fallback shim", () => {
