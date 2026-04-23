@@ -143,7 +143,7 @@
     "preinstall": "node scripts/init-submodules.mjs",
     "postinstall": "node scripts/milady-postinstall-repo-setup.mjs",
     "setup:sync": "node eliza/packages/app-core/scripts/run-repo-setup.mjs",
-    "pre-review:local": "bun eliza/packages/app-core/scripts/pre-review-local.mjs",
+    "pre-review:local": "node scripts/pre-review-local.mjs",
     "prepack": "node eliza/packages/app-core/scripts/rt.mjs run build",
     "publish:plugins:next": "cd eliza/plugins && bun run publish:next",
     "release:check": "bun eliza/packages/app-core/scripts/run-node-tsx.mjs eliza/packages/app-core/scripts/release-check.ts",
