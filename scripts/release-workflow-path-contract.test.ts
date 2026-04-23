@@ -279,6 +279,32 @@ describe("release workflow path contract", () => {
     );
   });
 
+  it("uses the desktop-build command prefix variable for macOS Intel packaging", () => {
+    const releaseElectrobun = readWorkflow("release-electrobun.yml");
+
+    expect(releaseElectrobun).toContain(
+      'ELIZA_DESKTOP_COMMAND_PREFIX="arch -x86_64" node eliza/packages/app-core/scripts/desktop-build.mjs stage',
+    );
+    expect(releaseElectrobun).toContain(
+      'ELIZA_DESKTOP_COMMAND_PREFIX="arch -x86_64" node eliza/packages/app-core/scripts/desktop-build.mjs package',
+    );
+    expect(releaseElectrobun).not.toContain("MILADY_DESKTOP_COMMAND_PREFIX");
+  });
+
+  it("uploads canonical Electrobun build diagnostics when release packaging fails", () => {
+    const releaseElectrobun = readWorkflow("release-electrobun.yml");
+
+    expect(releaseElectrobun).toContain(
+      "name: Dump Electrobun build diagnostics",
+    );
+    expect(releaseElectrobun).toContain(
+      "name: electrobun-${{ matrix.platform.artifact-name }}-build-diagnostics",
+    );
+    expect(releaseElectrobun).toContain(
+      "eliza/packages/app-core/platforms/electrobun/build/**/wrapper-diagnostics.json",
+    );
+  });
+
   it("installs browser automation deps in the published-workspace fallback shim", () => {
     const fallbackScript = fs.readFileSync(
       path.join(

@@ -497,7 +497,7 @@ jobs:
       - name: Stage desktop bundle inputs
         run: |
           if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            MILADY_DESKTOP_COMMAND_PREFIX="arch -x86_64" node eliza/packages/app-core/scripts/desktop-build.mjs stage --variant=base --build-whisper
+            ELIZA_DESKTOP_COMMAND_PREFIX="arch -x86_64" node eliza/packages/app-core/scripts/desktop-build.mjs stage --variant=base --build-whisper
           else
             node eliza/packages/app-core/scripts/desktop-build.mjs stage --variant=base --build-whisper
           fi
@@ -641,7 +641,7 @@ jobs:
       - name: Build Electrobun app
         run: |
           if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            MILADY_DESKTOP_COMMAND_PREFIX="arch -x86_64" node eliza/packages/app-core/scripts/desktop-build.mjs package --env=${{ needs.prepare.outputs.env }}
+            ELIZA_DESKTOP_COMMAND_PREFIX="arch -x86_64" node eliza/packages/app-core/scripts/desktop-build.mjs package --env=${{ needs.prepare.outputs.env }}
           else
             node eliza/packages/app-core/scripts/desktop-build.mjs package --env=${{ needs.prepare.outputs.env }}
           fi
@@ -664,6 +664,38 @@ jobs:
           # (canary-macos-arm64-update.json etc.), so the baseUrl has no env
           # subdir. Enables Electrobun's release.generatePatch flow.
           ELIZA_RELEASE_URL: ${{ (github.event_name != 'workflow_call' || inputs.publish_release) && !inputs.draft && 'https://releases.milady.ai/' || '' }}
+
+      - name: Dump Electrobun build diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          for root in \
+            "eliza/packages/app-core/platforms/electrobun" \
+            "apps/app/electrobun"; do
+            echo "=== $root package.json ==="
+            if [ -f "$root/package.json" ]; then
+              node -e 'const fs=require("fs"); const p=process.argv[1]; const pkg=JSON.parse(fs.readFileSync(p, "utf8")); console.log(JSON.stringify({name:pkg.name,version:pkg.version,dependencies:pkg.dependencies,devDependencies:pkg.devDependencies}, null, 2));' "$root/package.json" || true
+            else
+              echo "(missing)"
+            fi
+
+            echo "=== $root build tree ==="
+            find -L "$root/build" -maxdepth 5 -print 2>/dev/null | sort | head -400 || echo "(missing build tree)"
+
+            echo "=== $root wrapper diagnostics ==="
+            find -L "$root/build" -name wrapper-diagnostics.json -print -exec sed -n '1,220p' {} \; 2>/dev/null || true
+          done
+
+      - name: Upload Electrobun build diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: electrobun-${{ matrix.platform.artifact-name }}-build-diagnostics
+          path: |
+            eliza/packages/app-core/platforms/electrobun/build/**/wrapper-diagnostics.json
+            apps/app/electrobun/build/**/wrapper-diagnostics.json
+          if-no-files-found: warn
+          retention-days: 14
 
       # Inject version.json into the packaged Resources directory.
       # The bun entry getVersionInfo() reads ../Resources/version.json and
@@ -1309,6 +1341,7 @@ jobs:
           name: electrobun-${{ matrix.platform.artifact-name }}-smoke-diagnostics
           path: |
             ${{ runner.temp }}/milady-smoke-diagnostics/**
+            eliza/packages/app-core/platforms/electrobun/build/**/wrapper-diagnostics.json
             apps/app/electrobun/build/**/wrapper-diagnostics.json
           if-no-files-found: warn
           retention-days: 14
