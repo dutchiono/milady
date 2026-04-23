@@ -527,6 +527,12 @@ describe("release workflow path contract", () => {
       'if [ "${{ inputs.draft }}" != "true" ] || [ "${{ inputs.publish_release }}" = "true" ]; then',
     );
     expect(releaseElectrobun).toContain(
+      'artifact_root="$(dirname "$build_root")/artifacts"',
+    );
+    expect(releaseElectrobun).not.toContain(
+      'artifact_root="apps/app/electrobun/artifacts"',
+    );
+    expect(releaseElectrobun).toContain(
       'tar --zstd -cf "$artifact_root/elizaOS-${{ needs.prepare.outputs.env }}-${{ matrix.platform.artifact-name }}.tar.zst"',
     );
   });

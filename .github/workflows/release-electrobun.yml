@@ -698,8 +698,7 @@ jobs:
           key: electrobun-core-${{ matrix.platform.artifact-name }}-${{ hashFiles('apps/app/electrobun/package.json') }}
           restore-keys: electrobun-core-${{ matrix.platform.artifact-name }}-
 
-      - name: Build patched Electrobun CLI for Windows
-        if: matrix.platform.os == 'windows'
+      - name: Build patched Electrobun CLI
         shell: bash
         run: |
           node eliza/packages/app-core/scripts/build-patched-electrobun-cli.mjs "${{ steps.resolve-electrobun.outputs.package-dir }}"
@@ -722,7 +721,6 @@ jobs:
             exit "$status"
           fi
 
-          artifact_root="apps/app/electrobun/artifacts"
           build_root=""
           build_dir=""
           for candidate_root in \
@@ -740,6 +738,7 @@ jobs:
             exit "$status"
           fi
 
+          artifact_root="$(dirname "$build_root")/artifacts"
           mkdir -p "$artifact_root"
           case "${{ matrix.platform.os }}" in
             linux)
