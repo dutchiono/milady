@@ -6,6 +6,7 @@ import {
   applyMiladyCopyPatches,
   applyPluginAnthropicBunRuntimePatch,
   applyPluginAnthropicCliUsagePatch,
+  applyPluginLocalEmbeddingNodeTypesPatch,
   applyTypeScriptIgnoreDeprecationsCompatPatch,
   applyUnpublishedPluginStubOverrides,
   bootstrapBundledBunInstall,
@@ -14,6 +15,7 @@ import {
   ensureElizaBuildOutputs,
   ensureElizaTypescriptDependencyLinks,
   ensurePluginAnthropicBunTypes,
+  ensurePluginBuildOutputs,
   ensureRequiredElizaPluginBuilds,
   findInstalledPackageDir,
   getElizaInstallArgs,
@@ -58,7 +60,11 @@ describe("ensureElizaTypescriptDependencyLinks", () => {
   it("links an explicitly listed package from the repo root into core", () => {
     const repoRoot = makeTempDir();
     const elizaRoot = path.join(repoRoot, "eliza");
-    const targetPkg = path.join(repoRoot, "node_modules", "milady-test-link-pkg");
+    const targetPkg = path.join(
+      repoRoot,
+      "node_modules",
+      "milady-test-link-pkg",
+    );
     writeFile(
       path.join(targetPkg, "package.json"),
       '{"name":"milady-test-link-pkg"}',
@@ -687,8 +693,22 @@ describe("ensureRequiredElizaPluginBuilds", () => {
 });
 
 describe("ensureElizaBuildOutputs", () => {
-  it("always rebuilds @elizaos/core so nested plugin builds see fresh declarations", async () => {
+  it("skips local @elizaos/core rebuilds when checked-in outputs already exist", async () => {
     const elizaRoot = makeTempDir();
+    writeFile(
+      path.join(
+        elizaRoot,
+        "packages",
+        "typescript",
+        "src",
+        "types",
+        "generated",
+        "eliza",
+        "v1",
+        "agent_pb.ts",
+      ),
+      "export {};\n",
+    );
     writeFile(
       path.join(
         elizaRoot,
@@ -727,6 +747,67 @@ describe("ensureElizaBuildOutputs", () => {
       }),
     ).resolves.toBeUndefined();
 
+    expect(runCommandImpl).not.toHaveBeenCalled();
+    expect(log).not.toHaveBeenCalledWith(
+      "[setup-upstreams] Building @elizaos/core",
+    );
+  });
+
+  it("rebuilds @elizaos/core in CI so nested plugin builds see fresh declarations", async () => {
+    const elizaRoot = makeTempDir();
+    writeFile(
+      path.join(
+        elizaRoot,
+        "packages",
+        "typescript",
+        "src",
+        "types",
+        "generated",
+        "eliza",
+        "v1",
+        "agent_pb.ts",
+      ),
+      "export {};\n",
+    );
+    writeFile(
+      path.join(
+        elizaRoot,
+        "packages",
+        "typescript",
+        "src",
+        "i18n",
+        "generated",
+        "validation-keyword-data.ts",
+      ),
+      "export {};\n",
+    );
+    writeFile(
+      path.join(
+        elizaRoot,
+        "packages",
+        "prompts",
+        "dist",
+        "typescript",
+        "index.ts",
+      ),
+      "export {};\n",
+    );
+    writeFile(
+      path.join(elizaRoot, "packages", "skills", "dist", "index.js"),
+      "export {};\n",
+    );
+
+    const runCommandImpl = vi.fn().mockResolvedValue(undefined);
+    const log = vi.fn();
+
+    await expect(
+      ensureElizaBuildOutputs(elizaRoot, {
+        env: { CI: "true" },
+        runCommandImpl,
+        log,
+      }),
+    ).resolves.toBeUndefined();
+
     expect(runCommandImpl).toHaveBeenCalledTimes(1);
     expect(runCommandImpl).toHaveBeenCalledWith("bun", ["run", "build"], {
       cwd: path.join(elizaRoot, "packages", "typescript"),
@@ -734,6 +815,32 @@ describe("ensureElizaBuildOutputs", () => {
     });
     expect(log).toHaveBeenCalledWith(
       "[setup-upstreams] Building @elizaos/core",
+    );
+  });
+});
+
+describe("applyPluginLocalEmbeddingNodeTypesPatch", () => {
+  it("casts Buffer reads to satisfy current Node typings", () => {
+    const elizaRoot = makeTempDir();
+    const sourcePath = path.join(
+      elizaRoot,
+      "plugins",
+      "plugin-local-embedding",
+      "typescript",
+      "src",
+      "index.ts",
+    );
+    writeFile(
+      sourcePath,
+      [
+        "const header = Buffer.alloc(4);",
+        "      const bytesRead = fs.readSync(fd, header, 0, header.length, 0);",
+      ].join("\n"),
+    );
+
+    expect(applyPluginLocalEmbeddingNodeTypesPatch(elizaRoot)).toBe(1);
+    expect(fs.readFileSync(sourcePath, "utf8")).toContain(
+      "fs.readSync(fd, header as Uint8Array, 0, header.length, 0)",
     );
   });
 });
@@ -1420,5 +1527,35 @@ describe("ensurePluginAnthropicBunTypes", () => {
   it("is a no-op when plugin-anthropic is not present", () => {
     const pluginsRoot = makeTempDir();
     expect(ensurePluginAnthropicBunTypes(pluginsRoot)).toBe(false);
+  });
+});
+
+describe("ensurePluginBuildOutputs", () => {
+  it("does not build missing plugin artifacts during normal local installs", async () => {
+    const pluginsRoot = makeTempDir();
+    const packageDir = path.join(pluginsRoot, "plugin-example");
+    writeFile(
+      path.join(packageDir, "package.json"),
+      JSON.stringify({
+        name: "@elizaos/plugin-example",
+        scripts: { build: "tsup" },
+      }),
+    );
+
+    const runCommandImpl = vi.fn().mockResolvedValue(undefined);
+    const log = vi.fn();
+
+    await expect(
+      ensurePluginBuildOutputs(pluginsRoot, {
+        env: {},
+        runCommandImpl,
+        log,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(runCommandImpl).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(
+      "[setup-upstreams] Skipping missing plugin builds outside CI; set MILADY_FORCE_LOCAL_UPSTREAMS=1 to force",
+    );
   });
 });

@@ -203,6 +203,13 @@ const PLUGIN_ANTHROPIC_CLAUDE_CLI_RELATIVE_PATH = path.join(
   "utils",
   "claude-cli.ts",
 );
+const PLUGIN_LOCAL_EMBEDDING_INDEX_RELATIVE_PATH = path.join(
+  "plugins",
+  "plugin-local-embedding",
+  "typescript",
+  "src",
+  "index.ts",
+);
 const PLUGIN_ANTHROPIC_INIT_RELATIVE_PATH = path.join(
   "plugins",
   "plugin-anthropic",
@@ -245,6 +252,12 @@ const PLUGIN_ANTHROPIC_CLAUDE_CLI_BUN_REPLACEMENTS = [
   [
     `const proc = Bun.spawn(args, { stdout: "pipe", stderr: "pipe" });`,
     `const proc = getBunRuntime().spawn(args, { stdout: "pipe", stderr: "pipe" });`,
+  ],
+];
+const PLUGIN_LOCAL_EMBEDDING_NODE_TYPES_REPLACEMENTS = [
+  [
+    "      const bytesRead = fs.readSync(fd, header, 0, header.length, 0);",
+    "      const bytesRead = fs.readSync(fd, header as Uint8Array, 0, header.length, 0);",
   ],
 ];
 const TS_IGNORE_DEPRECATIONS_COMPAT_FILES = [
@@ -515,6 +528,14 @@ export function applyPluginAnthropicCliUsagePatch(elizaRoot) {
     path.join(elizaRoot, PLUGIN_ANTHROPIC_CLAUDE_CLI_RELATIVE_PATH),
     PLUGIN_ANTHROPIC_CLAUDE_CLI_REPLACEMENTS,
     { label: "plugin-anthropic Claude CLI usage patch" },
+  );
+}
+
+export function applyPluginLocalEmbeddingNodeTypesPatch(elizaRoot) {
+  return applyTextReplacements(
+    path.join(elizaRoot, PLUGIN_LOCAL_EMBEDDING_INDEX_RELATIVE_PATH),
+    PLUGIN_LOCAL_EMBEDDING_NODE_TYPES_REPLACEMENTS,
+    { label: "plugin-local-embedding Node 22 Buffer patch" },
   );
 }
 
@@ -1917,6 +1938,7 @@ async function ensureElizaGeneratedKeywordData(
 export async function ensureElizaBuildOutputs(
   elizaRoot,
   {
+    env = process.env,
     pathExists = existsSync,
     runCommandImpl = runCommand,
     log = console.log,
@@ -1929,7 +1951,9 @@ export async function ensureElizaBuildOutputs(
   });
 
   for (const step of ELIZA_BUILD_STEPS) {
-    if (!step.alwaysRun && pathExists(path.join(elizaRoot, step.check))) {
+    const shouldAlwaysRun =
+      step.alwaysRun && (env.CI === "true" || getForceEnvKey(env));
+    if (!shouldAlwaysRun && pathExists(path.join(elizaRoot, step.check))) {
       continue;
     }
 
@@ -2020,8 +2044,20 @@ export function ensurePluginAnthropicBunTypes(
 
 export async function ensurePluginBuildOutputs(
   pluginsRoot,
-  { pathExists = existsSync, runCommandImpl = runCommand } = {},
+  {
+    env = process.env,
+    pathExists = existsSync,
+    runCommandImpl = runCommand,
+    log = console.log,
+  } = {},
 ) {
+  if (env.CI !== "true" && !getForceEnvKey(env)) {
+    log(
+      "[setup-upstreams] Skipping missing plugin builds outside CI; set MILADY_FORCE_LOCAL_UPSTREAMS=1 to force",
+    );
+    return;
+  }
+
   ensurePluginAnthropicBunTypes(pluginsRoot, { pathExists });
   for (const packageDir of discoverPluginPackageDirs(pluginsRoot)) {
     const packageJson = readPackageJson(packageDir);
@@ -2130,6 +2166,7 @@ export async function setupUpstreams(repoRoot = DEFAULT_REPO_ROOT) {
   ensurePluginDependencyLinks(repoRoot, pluginsRoot);
   applyPluginAnthropicBunRuntimePatch(elizaRoot);
   applyPluginAnthropicCliUsagePatch(elizaRoot);
+  applyPluginLocalEmbeddingNodeTypesPatch(elizaRoot);
   await ensurePluginBuildOutputs(pluginsRoot);
   const updatedLinks = linkUpstreamPackages(repoRoot, {
     elizaRoot,
