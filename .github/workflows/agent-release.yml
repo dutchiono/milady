@@ -296,6 +296,10 @@ jobs:
           no-vision-deps: "true"
       - name: Restore legacy electrobun compatibility path
         run: node scripts/ensure-legacy-electrobun-compat.mjs
+      - name: Install Android NDK
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;29.0.13113456"
       - name: Prepare Android project
         run: node eliza/packages/app-core/scripts/run-mobile-build.mjs android
       - name: Build AAB

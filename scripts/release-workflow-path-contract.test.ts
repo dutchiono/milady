@@ -36,6 +36,9 @@ describe("release workflow path contract", () => {
       "node eliza/packages/app-core/scripts/run-mobile-build.mjs android",
     );
     expect(agentRelease).toContain(
+      '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;29.0.13113456"',
+    );
+    expect(agentRelease).toContain(
       "node eliza/packages/app-core/scripts/run-mobile-build.mjs ios",
     );
     expect(agentRelease).not.toContain(

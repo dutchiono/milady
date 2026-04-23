@@ -591,7 +591,7 @@ describe("bootstrapBundledBunInstall", () => {
     ).resolves.toBe(false);
 
     expect(runCommandImpl).toHaveBeenCalledWith(
-      path.join("node_modules", "bun", "bin", "bun.exe"),
+      "node_modules/bun/bin/bun.exe",
       ["--version"],
       {
         cwd: workspaceRoot,
@@ -633,7 +633,7 @@ describe("bootstrapBundledBunInstall", () => {
 
     expect(runCommandImpl).toHaveBeenNthCalledWith(
       1,
-      path.join("node_modules", "bun", "bin", "bun.exe"),
+      "node_modules/bun/bin/bun.exe",
       ["--version"],
       {
         cwd: workspaceRoot,
@@ -644,7 +644,7 @@ describe("bootstrapBundledBunInstall", () => {
     expect(runCommandImpl).toHaveBeenNthCalledWith(
       2,
       "node",
-      [path.join("node_modules", "bun", "install.js")],
+      ["node_modules/bun/install.js"],
       {
         cwd: workspaceRoot,
         label: "node node_modules/bun/install.js (eliza bun bootstrap)",
@@ -883,6 +883,40 @@ describe("applyTypeScriptIgnoreDeprecationsCompatPatch", () => {
 
     expect(applyTypeScriptIgnoreDeprecationsCompatPatch(elizaRoot)).toBe(1);
     expect(fs.readFileSync(calendlyPath, "utf8")).toContain(
+      '"ignoreDeprecations": "5.0"',
+    );
+  });
+
+  it("can force TypeScript 5 deprecation silencing for skip-local published-workspace jobs", () => {
+    const elizaRoot = makeTempDir();
+    const repoRoot = makeTempDir();
+    const declarationsPath = path.join(
+      elizaRoot,
+      "packages",
+      "typescript",
+      "tsconfig.declarations.json",
+    );
+
+    writeFile(
+      path.join(repoRoot, "package.json"),
+      JSON.stringify({ devDependencies: { typescript: "^5.9.3" } }, null, 2),
+    );
+    writeFile(
+      path.join(repoRoot, "eliza", "package.json"),
+      JSON.stringify({ devDependencies: { typescript: "^6.0.0" } }, null, 2),
+    );
+    writeFile(
+      declarationsPath,
+      '{\n  "compilerOptions": {\n    "ignoreDeprecations": "6.0",\n    "baseUrl": "./src"\n  }\n}\n',
+    );
+
+    expect(
+      applyTypeScriptIgnoreDeprecationsCompatPatch(elizaRoot, {
+        repoRoot,
+        targetVersion: "5.0",
+      }),
+    ).toBe(1);
+    expect(fs.readFileSync(declarationsPath, "utf8")).toContain(
       '"ignoreDeprecations": "5.0"',
     );
   });

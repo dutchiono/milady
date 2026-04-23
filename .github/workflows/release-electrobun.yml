@@ -1190,6 +1190,7 @@ jobs:
 
       - name: Collect Windows smoke diagnostics
         if: failure() && matrix.platform.os == 'windows'
+        continue-on-error: true
         shell: pwsh
         run: |
           $diagnosticsDir = Join-Path $PWD "apps/app/electrobun/artifacts/windows-smoke-diagnostics"

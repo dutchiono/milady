@@ -481,12 +481,13 @@ export function applyPluginAnthropicCliUsagePatch(elizaRoot) {
 
 export function applyTypeScriptIgnoreDeprecationsCompatPatch(
   elizaRoot,
-  { repoRoot = DEFAULT_REPO_ROOT } = {},
+  { repoRoot = DEFAULT_REPO_ROOT, targetVersion = null } = {},
 ) {
   let patchedReplacements = 0;
-  const targetVersion = resolveTypeScriptIgnoreDeprecationsTarget(repoRoot);
+  const resolvedTargetVersion =
+    targetVersion ?? resolveTypeScriptIgnoreDeprecationsTarget(repoRoot);
   const tsConfigReplacements =
-    buildIgnoreDeprecationsCompatibilityReplacements(targetVersion);
+    buildIgnoreDeprecationsCompatibilityReplacements(resolvedTargetVersion);
   for (const relativePath of TS_IGNORE_DEPRECATIONS_COMPAT_FILES) {
     patchedReplacements += applyTextReplacements(
       path.join(elizaRoot, relativePath),
@@ -1664,7 +1665,7 @@ export async function bootstrapBundledBunInstall(
     "bun",
     "bin",
     "bun.exe",
-  );
+  ).split(path.sep).join("/");
   const bunExecutablePath = path.join(workspaceRoot, bunExecutableRelativePath);
   if (pathExists(bunExecutablePath)) {
     try {
@@ -1680,7 +1681,7 @@ export async function bootstrapBundledBunInstall(
     "node_modules",
     "bun",
     "install.js",
-  );
+  ).split(path.sep).join("/");
   const bunInstallScriptPath = path.join(
     workspaceRoot,
     bunInstallScriptRelativePath,
@@ -1894,7 +1895,10 @@ export async function setupUpstreams(repoRoot = DEFAULT_REPO_ROOT) {
           );
         }
         applyMiladyCopyPatches(elizaRoot);
-        applyTypeScriptIgnoreDeprecationsCompatPatch(elizaRoot);
+        applyTypeScriptIgnoreDeprecationsCompatPatch(elizaRoot, {
+          repoRoot,
+          targetVersion: "5.0",
+        });
         applyLifeOpsLucideCompatPatch(elizaRoot);
       }
     }
