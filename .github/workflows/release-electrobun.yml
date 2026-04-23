@@ -487,6 +487,7 @@ jobs:
 
       - name: Generate protobuf types
         run: |
+          node eliza/packages/shared/scripts/generate-keywords.mjs --target ts
           if [ -d eliza/packages/schemas ] && [ -f eliza/packages/schemas/buf.gen.yaml ] && [ ! -d eliza/packages/typescript/src/types/generated ]; then
             cd eliza/packages/schemas
             node node_modules/@bufbuild/buf/install.js 2>/dev/null || true
@@ -662,7 +663,7 @@ jobs:
           # by the upload step below. Env is encoded in the platform prefix
           # (canary-macos-arm64-update.json etc.), so the baseUrl has no env
           # subdir. Enables Electrobun's release.generatePatch flow.
-          ELIZA_RELEASE_URL: https://releases.milady.ai/
+          ELIZA_RELEASE_URL: ${{ (github.event_name != 'workflow_call' || inputs.publish_release) && !inputs.draft && 'https://releases.milady.ai/' || '' }}
 
       # Inject version.json into the packaged Resources directory.
       # The bun entry getVersionInfo() reads ../Resources/version.json and

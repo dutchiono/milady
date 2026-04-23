@@ -218,6 +218,12 @@ describe("release workflow path contract", () => {
     expect(buildCloudImage).toContain(
       "const unpublished = /^@elizaos\\/(app-|capacitor-|plugin-agent-orchestrator|plugin-app-control|plugin-cli|plugin-imessage|plugin-local-ai|plugin-pdf|plugin-wechat|steward-)/;",
     );
+    expect(buildCloudImage).toContain(
+      '"@elizaos/app-core": "file:./eliza/packages/app-core"',
+    );
+    expect(buildCloudImage).toContain(
+      '"@elizaos/agent": "file:./eliza/packages/agent"',
+    );
   });
 
   it("keeps the electrobun release workflow aligned with the LifeOps Browser companion contract", () => {
@@ -251,13 +257,26 @@ describe("release workflow path contract", () => {
     const generateProto = releaseElectrobun.indexOf(
       "bunx @bufbuild/buf@1.67.0 generate",
     );
+    const generateKeywords = releaseElectrobun.indexOf(
+      "node eliza/packages/shared/scripts/generate-keywords.mjs --target ts",
+    );
     const stageDesktop = releaseElectrobun.indexOf(
       "node eliza/packages/app-core/scripts/desktop-build.mjs stage",
     );
 
+    expect(generateKeywords).toBeGreaterThanOrEqual(0);
     expect(generateProto).toBeGreaterThanOrEqual(0);
     expect(stageDesktop).toBeGreaterThanOrEqual(0);
+    expect(generateKeywords).toBeLessThan(stageDesktop);
     expect(generateProto).toBeLessThan(stageDesktop);
+  });
+
+  it("only enables Electrobun release patch generation for non-draft publish builds", () => {
+    const releaseElectrobun = readWorkflow("release-electrobun.yml");
+
+    expect(releaseElectrobun).toContain(
+      "ELIZA_RELEASE_URL: ${{ (github.event_name != 'workflow_call' || inputs.publish_release) && !inputs.draft && 'https://releases.milady.ai/' || '' }}",
+    );
   });
 
   it("installs browser automation deps in the published-workspace fallback shim", () => {

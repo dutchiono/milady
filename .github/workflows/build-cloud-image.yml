@@ -281,6 +281,15 @@ jobs:
               fs.writeFileSync(manifest, JSON.stringify(pkg, null, 2) + "\n");
             }
           }
+          const root = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          root.overrides = {
+            ...(root.overrides && typeof root.overrides === "object" ? root.overrides : {}),
+            "@elizaos/agent": "file:./eliza/packages/agent",
+            "@elizaos/app-core": "file:./eliza/packages/app-core",
+            "@elizaos/shared": "file:./eliza/packages/shared",
+            "@elizaos/ui": "file:./eliza/packages/ui",
+          };
+          fs.writeFileSync("package.json", JSON.stringify(root, null, 2) + "\n");
           NODE
           ls -la patches scripts/docker-entrypoint.sh plugins/plugin-selfcontrol 2>&1 | head -20
 
