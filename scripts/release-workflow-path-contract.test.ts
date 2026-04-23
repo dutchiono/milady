@@ -212,6 +212,12 @@ describe("release workflow path contract", () => {
     expect(buildCloudImage).toContain(
       "Build and push cloud app image with Buildx fallback",
     );
+    expect(buildCloudImage).toContain(
+      "const manifests = [",
+    );
+    expect(buildCloudImage).toContain(
+      "const unpublished = /^@elizaos\\/(app-|capacitor-|plugin-agent-orchestrator|plugin-app-control|plugin-cli|plugin-imessage|plugin-local-ai|plugin-pdf|plugin-wechat|steward-)/;",
+    );
   });
 
   it("keeps the electrobun release workflow aligned with the LifeOps Browser companion contract", () => {
@@ -238,6 +244,20 @@ describe("release workflow path contract", () => {
       "name: Attach LifeOps Browser assets to GitHub release",
     );
     expect(releaseElectrobun).toContain("pattern: lifeops-browser-*");
+  });
+
+  it("generates protobuf types before staging Electrobun desktop bundles", () => {
+    const releaseElectrobun = readWorkflow("release-electrobun.yml");
+    const generateProto = releaseElectrobun.indexOf(
+      "bunx @bufbuild/buf@1.67.0 generate",
+    );
+    const stageDesktop = releaseElectrobun.indexOf(
+      "node eliza/packages/app-core/scripts/desktop-build.mjs stage",
+    );
+
+    expect(generateProto).toBeGreaterThanOrEqual(0);
+    expect(stageDesktop).toBeGreaterThanOrEqual(0);
+    expect(generateProto).toBeLessThan(stageDesktop);
   });
 
   it("installs browser automation deps in the published-workspace fallback shim", () => {
