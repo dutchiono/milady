@@ -204,6 +204,10 @@ packages=(
 # pack/build-time packages absent from root node_modules even though app-core
 # still imports/bundles them during release checks.
 append_versioned_package \
+  "@elizaos/core" \
+  "eliza/packages/typescript/package.json" \
+  ".eliza.ci-disabled/packages/typescript/package.json"
+append_versioned_package \
   "@elizaos/shared" \
   "eliza/packages/shared/package.json" \
   ".eliza.ci-disabled/packages/shared/package.json"
