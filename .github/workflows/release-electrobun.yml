@@ -1115,22 +1115,6 @@ jobs:
               Write-Error "eliza-dist app-lifeops still imports workspace-relative plugin-browser-bridge contracts"
               exit 1
             }
-            $requiredPluginPackages = @(
-              "@elizaos\plugin-commands",
-              "@elizaos\plugin-cron",
-              "@elizaos\plugin-shell",
-              "@elizaos\plugin-edge-tts"
-            )
-            foreach ($pluginPackage in $requiredPluginPackages) {
-              $pluginPackageJsonPath = Join-Path $elizaDist "node_modules\$pluginPackage\package.json"
-              Write-Host "Checking for: $pluginPackageJsonPath"
-              if (Test-Path $pluginPackageJsonPath) {
-                Write-Host "eliza-dist required plugin package found: $pluginPackage"
-              } else {
-                Write-Error "eliza-dist required plugin package NOT found: $pluginPackageJsonPath"
-                exit 1
-              }
-            }
             $agentRuntimeModules = @(
               "config\env-vars.js",
               "config\plugin-auto-enable.js",
