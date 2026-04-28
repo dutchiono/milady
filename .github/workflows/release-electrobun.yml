@@ -1115,6 +1115,30 @@ jobs:
               Write-Error "eliza-dist app-lifeops still imports workspace-relative plugin-browser-bridge contracts"
               exit 1
             }
+            $lifeOpsBrowserBridgeRefs = @(
+              "node_modules\@elizaos\app-lifeops\src\lifeops\repository.ts",
+              "node_modules\@elizaos\app-lifeops\src\lifeops\service-constants.ts",
+              "node_modules\@elizaos\app-lifeops\src\lifeops\service-helpers-browser.ts",
+              "node_modules\@elizaos\app-lifeops\src\lifeops\service-mixin-browser.ts",
+              "node_modules\@elizaos\app-lifeops\src\lifeops\service-mixin-core.ts",
+              "node_modules\@elizaos\app-lifeops\src\lifeops\service-mixin-discord.ts",
+              "node_modules\@elizaos\app-lifeops\src\lifeops\service-mixin-status.ts",
+              "node_modules\@elizaos\app-lifeops\src\lifeops\service-mixin-subscriptions.ts",
+              "node_modules\@elizaos\app-lifeops\src\lifeops\service-normalize-connector.ts",
+              "node_modules\@elizaos\app-lifeops\src\lifeops\service-normalize-task.ts"
+            )
+            foreach ($lifeOpsFile in $lifeOpsBrowserBridgeRefs) {
+              $lifeOpsPath = Join-Path $elizaDist $lifeOpsFile
+              if (-not (Test-Path $lifeOpsPath)) {
+                Write-Error "eliza-dist app-lifeops source NOT found: $lifeOpsPath"
+                exit 1
+              }
+              $lifeOpsSource = Get-Content $lifeOpsPath -Raw
+              if ($lifeOpsSource.Contains('../../../../plugins/plugin-browser-bridge/src/index.js')) {
+                Write-Error "eliza-dist app-lifeops still imports workspace-relative plugin-browser-bridge source in $lifeOpsFile"
+                exit 1
+              }
+            }
             $agentRuntimeModules = @(
               "config\env-vars.js",
               "config\plugin-auto-enable.js",
