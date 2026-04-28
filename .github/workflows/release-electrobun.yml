@@ -1131,6 +1131,9 @@ jobs:
               exit 1
             }
             $lifeOpsBrowserBridgeRefs = @(
+              "node_modules\@elizaos\app-lifeops\src\api\client-lifeops.ts",
+              "node_modules\@elizaos\app-lifeops\src\contracts\index.ts",
+              "node_modules\@elizaos\app-lifeops\src\lifeops\discord-browser-scraper.ts",
               "node_modules\@elizaos\app-lifeops\src\public.ts",
               "node_modules\@elizaos\app-lifeops\src\service.ts",
               "node_modules\@elizaos\app-lifeops\src\lifeops\repository.ts",
@@ -1151,7 +1154,7 @@ jobs:
                 exit 1
               }
               $lifeOpsSource = Get-Content $lifeOpsPath -Raw
-              if ($lifeOpsSource.Contains('../../../../plugins/plugin-browser-bridge/src/index.js')) {
+              if ($lifeOpsSource.Contains('../../../../plugins/plugin-browser-bridge/src/')) {
                 Write-Error "eliza-dist app-lifeops still imports workspace-relative plugin-browser-bridge source in $lifeOpsFile"
                 exit 1
               }
