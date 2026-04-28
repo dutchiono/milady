@@ -1005,17 +1005,21 @@ describe("release workflow path contract", () => {
     );
   });
 
-  it("patches shared keyword generation to emit runtime JavaScript", () => {
-    const patch = fs.readFileSync(
-      path.join(repoRoot, "patches", "eliza", "ci-release-contracts.patch"),
+  it("expects shared keyword generation to emit runtime JavaScript", () => {
+    const generator = fs.readFileSync(
+      path.join(
+        repoRoot,
+        "eliza",
+        "packages",
+        "shared",
+        "scripts",
+        "generate-keywords.mjs",
+      ),
       "utf8",
     );
 
-    expect(patch).toContain(
-      "diff --git a/packages/shared/scripts/generate-keywords.mjs",
-    );
-    expect(patch).toContain("function generateJavaScript(entries)");
-    expect(patch).toContain("validation-keyword-data.js");
+    expect(generator).toContain("function generateJavaScript(entries)");
+    expect(generator).toContain("validation-keyword-data.js");
   });
 
   it("patches generated Android files before the release Gradle build", () => {
