@@ -195,6 +195,11 @@ jobs:
 
       - name: Init non-eliza submodules
         run: |
+          if [ "${{ github.repository_owner }}" != "milady-ai" ]; then
+            if git ls-remote --exit-code "https://github.com/${{ github.repository_owner }}/eliza.git" HEAD >/dev/null 2>&1; then
+              git config submodule.eliza.url "https://github.com/${{ github.repository_owner }}/eliza.git"
+            fi
+          fi
           git submodule sync -- eliza
           git submodule update --init --depth=1 eliza
           node scripts/init-submodules.mjs
@@ -369,6 +374,11 @@ jobs:
 
       - name: Init non-eliza submodules
         run: |
+          if [ "${{ github.repository_owner }}" != "milady-ai" ]; then
+            if git ls-remote --exit-code "https://github.com/${{ github.repository_owner }}/eliza.git" HEAD >/dev/null 2>&1; then
+              git config submodule.eliza.url "https://github.com/${{ github.repository_owner }}/eliza.git"
+            fi
+          fi
           git submodule sync -- eliza
           git submodule update --init --depth=1 eliza
           node scripts/init-submodules.mjs
@@ -472,6 +482,11 @@ jobs:
 
       - name: Init non-eliza submodules
         run: |
+          if [ "${{ github.repository_owner }}" != "milady-ai" ]; then
+            if git ls-remote --exit-code "https://github.com/${{ github.repository_owner }}/eliza.git" HEAD >/dev/null 2>&1; then
+              git config submodule.eliza.url "https://github.com/${{ github.repository_owner }}/eliza.git"
+            fi
+          fi
           git submodule sync -- eliza
           git submodule update --init --depth=1 eliza
           node scripts/init-submodules.mjs
