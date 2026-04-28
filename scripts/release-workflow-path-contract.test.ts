@@ -557,6 +557,9 @@ describe("release workflow path contract", () => {
       "test -f eliza/packages/shared/src/i18n/generated/validation-keyword-data.js",
     );
     expect(releaseElectrobun).toContain(
+      'find node_modules/.bun -type f -path "*/node_modules/@elizaos/shared/src/i18n/keyword-matching.ts" 2>/dev/null',
+    );
+    expect(releaseElectrobun).toContain(
       "mkdir -p dist/node_modules/@elizaos/shared/src/i18n/generated",
     );
     expect(releaseElectrobun).toContain(
