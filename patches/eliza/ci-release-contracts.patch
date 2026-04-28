@@ -1738,3 +1738,62 @@ diff --git a/packages/app-core/scripts/copy-runtime-node-modules.ts b/packages/a
 +  }
 +
 +  if (name !== "@elizaos/plugin-cron") {
+diff --git a/packages/app-core/scripts/lib/patch-bun-exports.mjs b/packages/app-core/scripts/lib/patch-bun-exports.mjs
+index 7b8497ed6c..10bef02954 100644
+--- a/packages/app-core/scripts/lib/patch-bun-exports.mjs
++++ b/packages/app-core/scripts/lib/patch-bun-exports.mjs
+@@ -1482,6 +1482,34 @@ export function patchElectrobunWindowsTar(root, log = console.log) {
+   return patched;
+ }
+ 
++/**
++ * `lifeOpsPassiveConnectorsEnabled` ships in the local eliza source tree but was
++ * not included in the @elizaos/core@2.0.0-alpha.474 npm dist. Append it as a
++ * named export to dist/node/index.node.js so CI builds (MILADY_SKIP_LOCAL_UPSTREAMS=1)
++ * can resolve the symbol without a source checkout.
++ */
++export function patchElizaCoreLifeOpsPassiveConnectors(root, log = console.log) {
++  const MARKER = "lifeOpsPassiveConnectorsEnabled";
++  const SHIM = `
++// lifeOpsPassiveConnectorsEnabled — injected by patch-deps (missing from @elizaos/core dist)
++function __lifeops_isFalse(v){if(v===false||v===0)return true;if(typeof v!=="string")return false;const n=v.trim().toLowerCase();return n==="0"||n==="false"||n==="off"||n==="no"||n==="disabled";}
++export function lifeOpsPassiveConnectorsEnabled(runtime,env=(globalThis.process?.env??{})){for(const key of["MILADY_LIFEOPS_PASSIVE_CONNECTORS","LIFEOPS_PASSIVE_CONNECTORS"]){const rv=runtime?.getSetting?.(key);if(rv!==undefined&&rv!==null)return!__lifeops_isFalse(rv);const ev=env[key];if(ev!==undefined&&ev!==null)return!__lifeops_isFalse(ev);}return true;}
++`;
++  const pkgJsonPaths = findPackageJsonPaths(root, "@elizaos/core");
++  let patchedAny = false;
++  for (const pkgJsonPath of pkgJsonPaths) {
++    const pkgDir = dirname(pkgJsonPath);
++    const target = resolve(pkgDir, "dist/node/index.node.js");
++    if (!existsSync(target)) continue;
++    const src = readFileSync(target, "utf8");
++    if (src.includes(MARKER)) continue;
++    writeFileSync(target, src + SHIM, "utf8");
++    patchedAny = true;
++    log(`[patch-deps] Patched @elizaos/core lifeOpsPassiveConnectorsEnabled: ${target}`);
++  }
++  return patchedAny;
++}
++
+ export function patchAutonomousTypeError(root, log = console.log) {
+   const candidates = findPackageFilePaths(
+     root,
+diff --git a/packages/app-core/scripts/patch-deps.mjs b/packages/app-core/scripts/patch-deps.mjs
+index 855cb5862e..e0d840e85d 100644
+--- a/packages/app-core/scripts/patch-deps.mjs
++++ b/packages/app-core/scripts/patch-deps.mjs
+@@ -35,6 +35,7 @@ import {
+   patchAutonomousElizaOnboardingPresets,
+   patchBrokenElizaCoreRuntimeDists,
+   patchCodexFolderApprovalPromptCompat,
++  patchElizaCoreLifeOpsPassiveConnectors,
+   patchElizaCoreRolesSubpath,
+   patchExtensionlessJsExports,
+   patchNobleHashesCompat,
+@@ -101,6 +102,7 @@ patchNobleHashesCompat(root);
+ patchCodexFolderApprovalPromptCompat(root);
+ patchBrokenElizaCoreRuntimeDists(root);
+ patchElizaCoreRolesSubpath(root);
++patchElizaCoreLifeOpsPassiveConnectors(root);
+ patchPtyManagerEsmDirnameCompat(root);
+ patchPtyManagerCursorPositionCompat(root);
+ // @elizaos/agent and @elizaos/ui ship exports maps where glob targets still
