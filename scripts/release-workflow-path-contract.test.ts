@@ -673,7 +673,7 @@ describe("release workflow path contract", () => {
     );
   });
 
-  it("keeps Windows release packaging on the last green dependency path", () => {
+  it("uses one published-workspace fallback dependency path across platforms", () => {
     const releaseElectrobun = readWorkflow("release-electrobun.yml");
     const patch = fs.readFileSync(
       path.join(repoRoot, "patches", "eliza", "ci-release-contracts.patch"),
@@ -692,9 +692,7 @@ describe("release workflow path contract", () => {
       fallbackInstallStart,
       releaseElectrobun.indexOf("\n\n", fallbackInstallStart),
     );
-    expect(fallbackInstallBlock).toContain(
-      "if: matrix.platform.os != 'windows'",
-    );
+    expect(fallbackInstallBlock).not.toContain("if:");
     expect(fallbackInstallBlock).toContain(
       "run: bash scripts/install-published-workspace-fallback-deps.sh",
     );
