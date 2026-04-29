@@ -942,20 +942,34 @@ jobs:
             $agentManifest = Get-Content $agentManifestPath -Raw | ConvertFrom-Json
             $agentExportNames = @($agentManifest.exports.PSObject.Properties.Name)
             $agentRequiredExports = @(
-              "./config/env-vars",
-              "./config/plugin-auto-enable",
-              "./config/schema",
-              "./runtime/advanced-capabilities-config",
-              "./runtime/embedding-presets",
-              "./runtime/plugin-collector",
-              "./runtime/plugin-resolver",
-              "./runtime/plugin-types"
+              "./config/*",
+              "./runtime/*"
             )
             foreach ($runtimeExport in $agentRequiredExports) {
               if ($agentExportNames -contains $runtimeExport) {
                 Write-Host "eliza-dist @elizaos/agent package export found: $runtimeExport"
               } else {
                 Write-Error "eliza-dist @elizaos/agent package export NOT found: $runtimeExport"
+                exit 1
+              }
+            }
+            $agentRequiredSourceFiles = @(
+              "src\config\env-vars.ts",
+              "src\config\plugin-auto-enable.ts",
+              "src\config\schema.ts",
+              "src\runtime\advanced-capabilities-config.ts",
+              "src\runtime\embedding-presets.ts",
+              "src\runtime\plugin-collector.ts",
+              "src\runtime\plugin-resolver.ts",
+              "src\runtime\plugin-types.ts"
+            )
+            foreach ($sourceFile in $agentRequiredSourceFiles) {
+              $agentSourceCheck = Join-Path $elizaDist "node_modules\@elizaos\agent\$sourceFile"
+              Write-Host "Checking for: $agentSourceCheck"
+              if (Test-Path $agentSourceCheck) {
+                Write-Host "eliza-dist @elizaos/agent source file found: $sourceFile"
+              } else {
+                Write-Error "eliza-dist @elizaos/agent source file NOT found: $agentSourceCheck"
                 exit 1
               }
             }
