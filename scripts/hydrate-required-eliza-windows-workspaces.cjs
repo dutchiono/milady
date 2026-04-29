@@ -3,32 +3,6 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const repoRoot = process.cwd();
-const skipDirs = new Set([".git", "node_modules", "dist", "build", ".next"]);
-const requiredPlugins = new Set();
-
-function walk(dir) {
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.isDirectory()) {
-      if (skipDirs.has(entry.name)) continue;
-      walk(path.join(dir, entry.name));
-      continue;
-    }
-    if (!entry.isFile() || entry.name !== "package.json") continue;
-    const pkg = JSON.parse(fs.readFileSync(path.join(dir, entry.name), "utf8"));
-    for (const section of [
-      "dependencies",
-      "devDependencies",
-      "optionalDependencies",
-      "peerDependencies",
-    ]) {
-      for (const [name, spec] of Object.entries(pkg[section] || {})) {
-        if (name.startsWith("@elizaos/plugin-") && spec === "workspace:*") {
-          requiredPlugins.add(name.slice("@elizaos/".length));
-        }
-      }
-    }
-  }
-}
 
 function runGit(args) {
   const result = spawnSync("git", args, { cwd: repoRoot, stdio: "inherit" });
@@ -48,9 +22,6 @@ function getGitOutput(args) {
   }
   return result.stdout.trim();
 }
-
-walk(repoRoot);
-requiredPlugins.delete("plugin-openrouter");
 
 const metadata = new Map();
 const configOutput = getGitOutput([
@@ -73,17 +44,18 @@ for (const line of configOutput.split(/\r?\n/).filter(Boolean)) {
   metadata.set(name, record);
 }
 
-for (const pluginName of [...requiredPlugins].sort()) {
-  const submodulePath = `plugins/${pluginName}`;
-  const record = [...metadata.values()].find((entry) => entry.path === submodulePath);
-  if (!record?.url) continue;
-  const targetDir = path.join(repoRoot, "eliza", submodulePath);
+for (const record of [...metadata.values()].sort((a, b) =>
+  (a.path || "").localeCompare(b.path || ""),
+)) {
+  if (!record.path?.startsWith("plugins/")) continue;
+  if (record.path === "plugins/plugin-openrouter") continue;
+  const targetDir = path.join(repoRoot, "eliza", record.path);
   const rootManifest = path.join(targetDir, "package.json");
   const tsManifest = path.join(targetDir, "typescript", "package.json");
   if (fs.existsSync(rootManifest) || fs.existsSync(tsManifest)) continue;
   fs.rmSync(targetDir, { recursive: true, force: true });
   console.log(
-    `[windows-hydrate] cloning ${submodulePath} from ${record.url}#${record.branch || "alpha"}`,
+    `[windows-hydrate] cloning ${record.path} from ${record.url}#${record.branch || "alpha"}`,
   );
   runGit([
     "clone",
@@ -91,6 +63,6 @@ for (const pluginName of [...requiredPlugins].sort()) {
     "--branch",
     record.branch || "alpha",
     record.url,
-    path.join("eliza", submodulePath),
+    path.join("eliza", record.path),
   ]);
 }
