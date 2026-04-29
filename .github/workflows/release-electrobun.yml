@@ -394,6 +394,7 @@ jobs:
           test -f eliza/package.json
 
       - name: Ensure nested cloud workspace is hydrated
+        if: matrix.platform.os != 'windows'
         run: |
           git -C eliza submodule update --init cloud
           test -d eliza/cloud/packages/sdk
