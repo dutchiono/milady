@@ -173,7 +173,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          submodules: recursive
+          submodules: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -380,6 +380,12 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Init top-level eliza submodule
+        run: |
+          git submodule sync -- eliza
+          git submodule update --init --depth=1 eliza
+          test -f eliza/package.json
 
       - name: Ensure nested cloud workspace is hydrated
         run: |
