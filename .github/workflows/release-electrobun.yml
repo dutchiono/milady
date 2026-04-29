@@ -409,6 +409,25 @@ jobs:
           fi
           test -d eliza/cloud/packages/sdk
 
+          if [ "${{ matrix.platform.os }}" = "windows" ]; then
+            while read -r key path; do
+              case "$path" in
+                cloud|plugins/plugin-openrouter)
+                  continue
+                  ;;
+                plugins/*)
+                  url="$(git -C eliza config -f .gitmodules --get "${key%.path}.url")"
+                  branch="$(git -C eliza config -f .gitmodules --get "${key%.path}.branch" || echo alpha)"
+                  if [ ! -d "eliza/$path" ]; then
+                    git clone --depth=1 --branch "$branch" "$url" "eliza/$path"
+                  fi
+                  ;;
+              esac
+            done < <(git -C eliza config -f .gitmodules --get-regexp '^submodule\..*\.path$')
+          else
+            git -C eliza submodule update --init --recursive
+          fi
+
       - name: Install root dependencies
         # --ignore-scripts skips native dependency install scripts (e.g. @tensorflow/tfjs-node
         # which has no pre-built binary for Node 22 on Windows and fails to compile).
