@@ -532,7 +532,7 @@ jobs:
             @elizaos/plugin-anthropic@alpha \
             @elizaos/plugin-telegram@alpha
 
-      - name: Build local plugin-telegram and overlay Windows node_modules
+      - name: Build local plugin-telegram/plugin-sql and overlay Windows node_modules
         if: matrix.platform.os == 'windows'
         run: |
           git -C eliza submodule update --init --depth=1 plugins/plugin-telegram
@@ -546,6 +546,17 @@ jobs:
           cp -r eliza/plugins/plugin-telegram/dist "$installed_dir/dist"
           cp eliza/plugins/plugin-telegram/package.json "$installed_dir/package.json"
           test -f "$installed_dir/dist/account-auth-service.js"
+
+          # Keep packaged runtime aligned with current workspace plugin-sql exports.
+          test -f eliza/plugins/plugin-sql/package.json
+          (cd eliza/plugins/plugin-sql/typescript && bun run build.ts)
+          installed_sql_dir="node_modules/@elizaos/plugin-sql"
+          test -d "$installed_sql_dir"
+          test -d eliza/plugins/plugin-sql/typescript/dist
+          rm -rf "$installed_sql_dir/dist"
+          cp -r eliza/plugins/plugin-sql/typescript/dist "$installed_sql_dir/dist"
+          cp eliza/plugins/plugin-sql/package.json "$installed_sql_dir/package.json"
+          test -f "$installed_sql_dir/dist/node/index.node.js"
 
       - name: Restore eliza workspace paths for desktop release scripts
         run: node scripts/restore-local-eliza-workspace.mjs
