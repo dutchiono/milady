@@ -394,9 +394,19 @@ jobs:
           test -f eliza/package.json
 
       - name: Ensure nested cloud workspace is hydrated
-        if: matrix.platform.os != 'windows'
         run: |
-          git -C eliza submodule update --init cloud
+          if git -C eliza submodule update --init cloud; then
+            :
+          elif [ "${{ matrix.platform.os }}" = "windows" ]; then
+            echo "::warning::eliza/cloud gitlink is stale; cloning the remote branch tip to satisfy the required Bun workspace."
+            cloud_url="$(git -C eliza config -f .gitmodules --get submodule.cloud.url)"
+            cloud_branch="$(git -C eliza config -f .gitmodules --get submodule.cloud.branch || echo develop)"
+            git -C eliza submodule deinit -f -- cloud || true
+            rm -rf eliza/cloud
+            git clone --depth=1 --branch "$cloud_branch" "$cloud_url" eliza/cloud
+          else
+            exit 1
+          fi
           test -d eliza/cloud/packages/sdk
 
       - name: Install root dependencies
