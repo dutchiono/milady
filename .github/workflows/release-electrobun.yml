@@ -418,7 +418,8 @@ jobs:
                 plugins/*)
                   url="$(git -C eliza config -f .gitmodules --get "${key%.path}.url")"
                   branch="$(git -C eliza config -f .gitmodules --get "${key%.path}.branch" || echo alpha)"
-                  if [ ! -d "eliza/$path" ]; then
+                  if [ ! -f "eliza/$path/package.json" ] && [ ! -f "eliza/$path/typescript/package.json" ]; then
+                    rm -rf "eliza/$path"
                     git clone --depth=1 --branch "$branch" "$url" "eliza/$path"
                   fi
                   ;;
