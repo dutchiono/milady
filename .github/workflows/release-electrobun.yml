@@ -728,7 +728,7 @@ jobs:
           ENV_NAME="${{ needs.prepare.outputs.env }}"
           find -L "$build_dir" -type d -name "Resources" | while read -r res_dir; do
             dest="$res_dir/version.json"
-            printf '{"identifier":"ai.elizaos.Eliza","channel":"%s","name":"eliza","version":"%s"}' \
+            printf '{"identifier":"com.miladyai.milady","channel":"%s","name":"milady","version":"%s"}' \
               "$ENV_NAME" "$VERSION" > "$dest"
             echo "Wrote fallback $dest"
           done
@@ -760,6 +760,9 @@ jobs:
           ELIZA_ELECTROBUN_NOTARIZE: 0
           ELECTROBUN_REAL_XCRUN: /usr/bin/xcrun
           ELECTROBUN_REAL_ZIP: /usr/bin/zip
+          ELIZA_APP_NAME: Milady
+          ELIZA_APP_ID: com.miladyai.milady
+          ELIZA_URL_SCHEME: milady
           # Flat release root for the updater. Env is encoded in the platform prefix
           # (canary-macos-arm64-update.json etc.), so the baseUrl has no env subdir.
           # TODO: Configure releases host on milady-ai/milady repo settings (replace
@@ -804,9 +807,9 @@ jobs:
 
           Get-ChildItem -Path $buildRoot -Recurse -Directory -Filter "Resources" | ForEach-Object {
             $versionJson = @{
-              identifier = "ai.elizaos.Eliza"
+              identifier = "com.miladyai.milady"
               channel = $envName
-              name = "eliza"
+              name = "milady"
               version = $version
             } | ConvertTo-Json -Compress
             $dest = Join-Path $_.FullName "version.json"
@@ -823,7 +826,7 @@ jobs:
           if [ -d "$build_root" ]; then
             find -L "$build_root" -type d -name "Resources" | while read -r res_dir; do
               dest="$res_dir/version.json"
-              printf '{"identifier":"ai.elizaos.Eliza","channel":"%s","name":"eliza","version":"%s"}' \
+              printf '{"identifier":"com.miladyai.milady","channel":"%s","name":"milady","version":"%s"}' \
                 "$ENV_NAME" "$VERSION" > "$dest"
               echo "Wrote $dest"
             done
