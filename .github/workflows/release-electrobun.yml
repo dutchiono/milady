@@ -731,6 +731,9 @@ jobs:
           ELIZA_ELECTROBUN_NOTARIZE: 0
           ELECTROBUN_REAL_XCRUN: /usr/bin/xcrun
           ELECTROBUN_REAL_ZIP: /usr/bin/zip
+          ELIZA_APP_NAME: Milady
+          ELIZA_APP_ID: com.miladyai.milady
+          ELIZA_URL_SCHEME: milady
           # Flat release root for the updater. Env is encoded in the platform prefix
           # (canary-macos-arm64-update.json etc.), so the baseUrl has no env subdir.
           # TODO: Configure releases host on milady-ai/milady repo settings (replace
@@ -775,9 +778,9 @@ jobs:
 
           Get-ChildItem -Path $buildRoot -Recurse -Directory -Filter "Resources" | ForEach-Object {
             $versionJson = @{
-              identifier = "ai.elizaos.Eliza"
+              identifier = "com.miladyai.milady"
               channel = $envName
-              name = "eliza"
+              name = "milady"
               version = $version
             } | ConvertTo-Json -Compress
             $dest = Join-Path $_.FullName "version.json"
@@ -794,7 +797,7 @@ jobs:
           if [ -d "$build_root" ]; then
             find -L "$build_root" -type d -name "Resources" | while read -r res_dir; do
               dest="$res_dir/version.json"
-              printf '{"identifier":"ai.elizaos.Eliza","channel":"%s","name":"eliza","version":"%s"}' \
+              printf '{"identifier":"com.miladyai.milady","channel":"%s","name":"milady","version":"%s"}' \
                 "$ENV_NAME" "$VERSION" > "$dest"
               echo "Wrote $dest"
             done
@@ -902,44 +905,44 @@ jobs:
               Write-Error "eliza-dist generated keyword data NOT found: $keywordDataCheck"
               exit 1
             }
-            $agentRuntimeModules = @(
-              "config\env-vars.js",
-              "config\plugin-auto-enable.js",
-              "config\schema.js",
-              "runtime\advanced-capabilities-config.js",
-              "runtime\embedding-presets.js",
-              "runtime\plugin-collector.js",
-              "runtime\plugin-resolver.js",
-              "runtime\plugin-types.js"
-            )
-            foreach ($runtimeModule in $agentRuntimeModules) {
-              $agentRuntimeCheck = Join-Path $elizaDist "node_modules\@elizaos\agent\packages\agent\src\$runtimeModule"
-              Write-Host "Checking for: $agentRuntimeCheck"
-              if (Test-Path $agentRuntimeCheck) {
-                Write-Host "eliza-dist @elizaos/agent runtime module found: $runtimeModule"
-              } else {
-                Write-Error "eliza-dist @elizaos/agent runtime module NOT found: $agentRuntimeCheck"
-                exit 1
-              }
-            }
             $agentManifestPath = Join-Path $elizaDist "node_modules\@elizaos\agent\package.json"
+            Write-Host "Checking for: $agentManifestPath"
+            if (-not (Test-Path $agentManifestPath)) {
+              Write-Error "eliza-dist @elizaos/agent package manifest NOT found: $agentManifestPath"
+              exit 1
+            }
+            Write-Host "eliza-dist @elizaos/agent package manifest found"
             $agentManifest = Get-Content $agentManifestPath -Raw | ConvertFrom-Json
             $agentExportNames = @($agentManifest.exports.PSObject.Properties.Name)
             $agentRequiredExports = @(
-              "./config/env-vars",
-              "./config/plugin-auto-enable",
-              "./config/schema",
-              "./runtime/advanced-capabilities-config",
-              "./runtime/embedding-presets",
-              "./runtime/plugin-collector",
-              "./runtime/plugin-resolver",
-              "./runtime/plugin-types"
+              "./config/*",
+              "./runtime/*"
             )
             foreach ($runtimeExport in $agentRequiredExports) {
               if ($agentExportNames -contains $runtimeExport) {
                 Write-Host "eliza-dist @elizaos/agent package export found: $runtimeExport"
               } else {
                 Write-Error "eliza-dist @elizaos/agent package export NOT found: $runtimeExport"
+                exit 1
+              }
+            }
+            $agentRequiredSourceFiles = @(
+              "src\config\env-vars.ts",
+              "src\config\plugin-auto-enable.ts",
+              "src\config\schema.ts",
+              "src\runtime\advanced-capabilities-config.ts",
+              "src\runtime\embedding-presets.ts",
+              "src\runtime\plugin-collector.ts",
+              "src\runtime\plugin-resolver.ts",
+              "src\runtime\plugin-types.ts"
+            )
+            foreach ($sourceFile in $agentRequiredSourceFiles) {
+              $agentSourceCheck = Join-Path $elizaDist "node_modules\@elizaos\agent\$sourceFile"
+              Write-Host "Checking for: $agentSourceCheck"
+              if (Test-Path $agentSourceCheck) {
+                Write-Host "eliza-dist @elizaos/agent source file found: $sourceFile"
+              } else {
+                Write-Error "eliza-dist @elizaos/agent source file NOT found: $agentSourceCheck"
                 exit 1
               }
             }
@@ -1016,21 +1019,23 @@ jobs:
           # initialize — without it, startApiServer() can fail before
           # server.listen() and the health endpoint never becomes reachable.
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          ELIZA_WINDOWS_SMOKE_REQUIRE_INSTALLER: "1"
           # Use a short path under runner.temp to avoid MAX_PATH issues with
           # deeply nested node_modules while staying in a user-writable location.
           ELIZA_TEST_WINDOWS_INSTALL_DIR: ${{ runner.temp }}\el
           ELIZA_TEST_WINDOWS_LAUNCHER_DIR: ${{ runner.temp }}\eliza-windows-ui-launcher
           ELIZA_TEST_WINDOWS_LAUNCHER_PATH_FILE: ${{ runner.temp }}\eliza-windows-ui-launcher.txt
           # Inno installer is built into platforms/electrobun/artifacts.
-          ELIZA_TEST_WINDOWS_ARTIFACTS_DIR: ${{ github.workspace }}\packages\app-core\platforms\electrobun\artifacts
-          ELIZA_TEST_WINDOWS_BUILD_DIR: ${{ github.workspace }}\packages\app-core\platforms\electrobun\build
+          ELIZA_TEST_WINDOWS_ARTIFACTS_DIR: ${{ github.workspace }}\eliza\packages\app-core\platforms\electrobun\artifacts
+          ELIZA_TEST_WINDOWS_BUILD_DIR: ${{ github.workspace }}\eliza\packages\app-core\platforms\electrobun\build
         run: |
           Remove-Item $env:ELIZA_TEST_WINDOWS_INSTALL_DIR -Recurse -Force -ErrorAction SilentlyContinue
           Remove-Item $env:ELIZA_TEST_WINDOWS_LAUNCHER_DIR -Recurse -Force -ErrorAction SilentlyContinue
           Remove-Item $env:ELIZA_TEST_WINDOWS_LAUNCHER_PATH_FILE -Force -ErrorAction SilentlyContinue
 
-          bun run test:desktop:packaged:windows
+          Write-Host "Running packaged Windows smoke script directly under pwsh"
+          pwsh -File eliza/packages/app-core/platforms/electrobun/scripts/smoke-test-windows.ps1 `
+            -ArtifactsDir (Join-Path $PWD "eliza/packages/app-core/platforms/electrobun/artifacts") `
+            -BuildDir (Join-Path $PWD "eliza/packages/app-core/platforms/electrobun/build")
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Packaged Windows smoke test exited with code $LASTEXITCODE."
             exit $LASTEXITCODE
@@ -1326,9 +1331,9 @@ jobs:
         shell: pwsh
         run: |
           $diagnosticsDir = Join-Path $PWD "eliza/packages/app-core/platforms/electrobun/artifacts/windows-smoke-diagnostics"
-          $appDataRoot = if ($env:ELIZA_TEST_WINDOWS_APPDATA_PATH) { $env:ELIZA_TEST_WINDOWS_APPDATA_PATH } else { $env:APPDATA }
-          $localAppDataRoot = if ($env:ELIZA_TEST_WINDOWS_LOCALAPPDATA_PATH) { $env:ELIZA_TEST_WINDOWS_LOCALAPPDATA_PATH } else { $env:LOCALAPPDATA }
-          $wrapperRoot = Join-Path $localAppDataRoot "ai.elizaos.Eliza"
+          $appDataRoot = if ($env:MILADY_TEST_WINDOWS_APPDATA_PATH) { $env:MILADY_TEST_WINDOWS_APPDATA_PATH } elseif ($env:ELIZA_TEST_WINDOWS_APPDATA_PATH) { $env:ELIZA_TEST_WINDOWS_APPDATA_PATH } else { $env:APPDATA }
+          $localAppDataRoot = if ($env:MILADY_TEST_WINDOWS_LOCALAPPDATA_PATH) { $env:MILADY_TEST_WINDOWS_LOCALAPPDATA_PATH } elseif ($env:ELIZA_TEST_WINDOWS_LOCALAPPDATA_PATH) { $env:ELIZA_TEST_WINDOWS_LOCALAPPDATA_PATH } else { $env:LOCALAPPDATA }
+          $wrapperRoot = Join-Path $localAppDataRoot "com.miladyai.milady"
 
           Write-Host "Diagnostics roots:"
           Write-Host "  appDataRoot      = $appDataRoot"
