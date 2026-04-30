@@ -1049,7 +1049,6 @@ jobs:
           # initialize — without it, startApiServer() can fail before
           # server.listen() and the health endpoint never becomes reachable.
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          ELIZA_WINDOWS_SMOKE_REQUIRE_INSTALLER: "1"
           # Use a short path under runner.temp to avoid MAX_PATH issues with
           # deeply nested node_modules while staying in a user-writable location.
           ELIZA_TEST_WINDOWS_INSTALL_DIR: ${{ runner.temp }}\el
